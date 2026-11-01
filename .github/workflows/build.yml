@@ -41,7 +41,7 @@ jobs:
           echo "$KEYSTORE" | base64 --decode > key.jks
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleFossRelease --stacktrace
 
       - name: Verify signature fingerprint
         run: |

@@ -701,9 +701,7 @@ class MainActivity : SimpleActivity(), FlingListener {
             return
         }
         try {
-            if (!window.isCrossWindowBlurEnabled) {
-                return
-            }
+            // No-op on devices where cross-window blur is unavailable or disabled.
             window.setBackgroundBlurRadius(if (enabled) GLASS_BLUR_RADIUS else 0)
         } catch (_: Exception) {
         }

@@ -50,9 +50,8 @@ class SettingsActivity : SimpleActivity() {
             return
         }
         try {
-            if (window.isCrossWindowBlurEnabled) {
-                window.setBackgroundBlurRadius(110)
-            }
+            // No-op on devices where cross-window blur is unavailable or disabled.
+            window.setBackgroundBlurRadius(110)
         } catch (_: Exception) {
         }
     }
