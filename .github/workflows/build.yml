@@ -89,13 +89,16 @@ jobs:
         run: |
           mv apk/Fossil-release.apk "Fossil-v$VER.apk"
           cat > notes.md <<'EOF'
-          ## Fossil — Orubus liquid-glass launcher
+          ## Fossil v1.0.2 — the liquid glass engine
 
-          - **Liquid glass app drawer** — frosted translucent sheet, wallpaper blurred behind it on Android 12+
-          - **Liquid glass settings** — floating glass card over the blurred wallpaper
-          - **App opening animation** — launched apps bloom in while the launcher sinks back
-          - **Grid customization** — home rows/columns 2–15, drawer columns 1–15, label toggles
-          - **Monochrome identity** — white-on-black icons, signed with the Orubus release key (fingerprint-gated CI)
+          - **Real liquid glass** — every popup (long-press menus, wallpaper selector, rename, pickers) now refracts actual launcher content through a rounded-rect lens: displacement refraction, chromatic dispersion, fresnel rim and specular highlight. Live GPU shaders on Android 13+, an identical software render everywhere else — no more tinted layer
+          - **Liquid folders** — folder panels are pre-rendered glass surfaces with the same optics
+          - **Glass settings** — real blurred wallpaper skin, adaptive day/night scrim
+          - **Glass drawer** — actual blurred wallpaper layered under the frosted sheet, works on every device
+          - **Launch animation** — apps bloom out of the tapped icon while the launcher recedes
+          - **Three home layouts** — classic, all-apps-on-home, drawer-only home
+          - **Icon cache** — drawer icons render with zero delay; uninstalled apps drop their cache entries
+          - **Counterfeit nag removed** — upstream Fossify's randomized "fake app" warning no longer fires on this legitimate GPL fork
 
           Modded from [Fossify Launcher](https://github.com/FossifyOrg/Launcher) (GPL-3.0).
           EOF
