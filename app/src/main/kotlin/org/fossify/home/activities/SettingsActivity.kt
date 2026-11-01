@@ -232,7 +232,7 @@ class SettingsActivity : SimpleActivity() {
 
             GlassRadioDialog(
                 activity = this,
-                title = getString(R.string.column_count),
+                title = getString(org.fossify.commons.R.string.column_count),
                 items = items,
                 checkedId = currentColumnCount
             ) { picked ->
@@ -281,7 +281,7 @@ class SettingsActivity : SimpleActivity() {
 
             GlassRadioDialog(
                 activity = this,
-                title = getString(R.string.row_count),
+                title = getString(org.fossify.commons.R.string.row_count),
                 items = items,
                 checkedId = currentRowCount
             ) { picked ->
@@ -312,7 +312,7 @@ class SettingsActivity : SimpleActivity() {
 
             GlassRadioDialog(
                 activity = this,
-                title = getString(R.string.column_count),
+                title = getString(org.fossify.commons.R.string.column_count),
                 items = items,
                 checkedId = currentColumnCount
             ) { picked ->

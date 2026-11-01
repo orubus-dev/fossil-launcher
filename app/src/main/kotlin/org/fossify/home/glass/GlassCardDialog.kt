@@ -171,7 +171,7 @@ abstract class GlassCardDialog(
         // approximate the panel's screen rect for the backdrop request
         val metrics = activity.resources.displayMetrics
         val padX = dp(sidePaddingDp)
-        val cardHeight = measuredCardHeight.takeIf { it > 0 } ?: dp(220)
+        val cardHeight = measuredCardHeight.takeIf { it > 0 } ?: dp(220f)
         val screenRect: android.graphics.RectF = when (dialogGravity) {
             Gravity.CENTER -> {
                 val centerX = metrics.widthPixels / 2f
@@ -274,6 +274,15 @@ abstract class GlassCardDialog(
                 marginEnd = dp(16f)
             }
             setBackgroundColor(strokeArgb)
+        }
+    }
+
+    /** Trailing breathing room at the bottom of a glass card. */
+    protected fun buildSpacer(): View {
+        return View(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(10f)
+            )
         }
     }
 

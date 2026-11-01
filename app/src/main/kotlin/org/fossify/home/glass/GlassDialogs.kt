@@ -7,6 +7,8 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
+import android.widget.LinearLayout
+import org.fossify.commons.extensions.showKeyboard
 import org.fossify.home.R
 
 /**
@@ -40,14 +42,6 @@ class GlassMenuDialog(
         }
         rows.add(buildSpacer())
         installCard(rows)
-    }
-
-    private fun buildSpacer(): View {
-        return android.view.View(activity).apply {
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, dp(10f)
-            )
-        }
     }
 
     override fun onDismissed() {
@@ -244,14 +238,6 @@ class WallpaperPickerDialog(
         )
         rows.add(buildSpacer())
         installCard(rows)
-    }
-
-    private fun buildSpacer(): android.view.View {
-        return android.view.View(activity).apply {
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, dp(10f)
-            )
-        }
     }
 
     private fun buildLabel(text: String): android.view.View {

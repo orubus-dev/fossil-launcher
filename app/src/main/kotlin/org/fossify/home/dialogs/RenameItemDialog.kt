@@ -1,6 +1,8 @@
 package org.fossify.home.dialogs
 
 import android.app.Activity
+import org.fossify.commons.extensions.showKeyboard
+import org.fossify.commons.extensions.toast
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.home.extensions.homeScreenGridItemsDB
 import org.fossify.home.glass.GlassInputDialog
