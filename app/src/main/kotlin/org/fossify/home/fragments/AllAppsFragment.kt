@@ -140,8 +140,13 @@ class AllAppsFragment(
             layoutManager.spanCount = context.config.drawerColumnCount
 
             if (getAdapter() == null) {
-                LaunchersAdapter(activity!!, this) {
-                    activity?.launchApp((it as AppLauncher).packageName, it.activityName)
+                LaunchersAdapter(activity!!, this) { launcher, sourceView ->
+                    val app = launcher as AppLauncher
+                    activity?.launchApp(
+                        app.packageName,
+                        app.activityName,
+                        sourceView = sourceView
+                    )
                     if (activity?.config?.closeAppDrawer == true) {
                         activity?.closeAppDrawer(delayed = true)
                     }
@@ -154,6 +159,20 @@ class AllAppsFragment(
             }
 
             submitList(launchers.toMutableList())
+        }
+    }
+
+    /**
+     * Fossil drawer opening: as the glass sheet slides up, the visible app
+     * tiles bloom in one after another. Safe to call any time the drawer is
+     * about to be shown from a fully hidden state.
+     */
+    fun runEntranceAnimation() {
+        post {
+            val adapter = getAdapter() ?: return@post
+            if (adapter.itemCount > 0) {
+                LaunchersAdapter.animateEntrance(binding.allAppsGrid)
+            }
         }
     }
 

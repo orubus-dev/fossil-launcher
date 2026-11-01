@@ -17,7 +17,9 @@ import android.content.pm.ActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.app.Dialog
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
@@ -32,9 +34,9 @@ import android.view.GestureDetector
 import android.view.Gravity
 import android.view.Menu
 import android.view.MotionEvent
+import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
-import androidx.appcompat.widget.PopupMenu
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
@@ -71,7 +73,6 @@ import org.fossify.home.dialogs.RenameItemDialog
 import org.fossify.home.extensions.config
 import org.fossify.home.extensions.getDrawableForPackageName
 import org.fossify.home.extensions.getLabel
-import org.fossify.home.extensions.handleGridItemPopupMenu
 import org.fossify.home.extensions.hiddenIconsDB
 import org.fossify.home.extensions.homeScreenGridItemsDB
 import org.fossify.home.extensions.isDefaultLauncher
@@ -79,9 +80,13 @@ import org.fossify.home.extensions.launchApp
 import org.fossify.home.extensions.launchAppInfo
 import org.fossify.home.extensions.launchersDB
 import org.fossify.home.extensions.roleManager
+import org.fossify.home.extensions.showGridItemGlassMenu
 import org.fossify.home.extensions.supportsDarkText
 import org.fossify.home.extensions.uninstallApp
 import org.fossify.home.fragments.MyFragment
+import org.fossify.home.glass.GlassMenuDialog
+import org.fossify.home.glass.GlassWallpapers
+import org.fossify.home.glass.WallpaperPickerDialog
 import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_SHORTCUT
@@ -98,6 +103,7 @@ import org.fossify.home.models.AppLauncher
 import org.fossify.home.models.HiddenIcon
 import org.fossify.home.models.HomeScreenGridItem
 import org.fossify.home.receivers.LockDeviceAdminReceiver
+import org.fossify.commons.R as CommonsR
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -114,7 +120,10 @@ class MainActivity : SimpleActivity(), FlingListener {
     private var mIgnoreXMoveEvents = false
     private var mIgnoreYMoveEvents = false
     private var mLongPressedIcon: HomeScreenGridItem? = null
-    private var mOpenPopupMenu: PopupMenu? = null
+    private var mOpenPopupMenu: Dialog? = null
+    private var mOpenWallpaperDialog: Dialog? = null
+    private var mLaunchAnchor: View? = null
+    private var mLaunchZoomRunning = false
     private var mLastTouchCoords = Pair(-1f, -1f)
     private var mActionOnCanBindWidget: ((granted: Boolean) -> Unit)? = null
     private var mActionOnWidgetConfiguredWidget: ((granted: Boolean) -> Unit)? = null
@@ -134,6 +143,10 @@ class MainActivity : SimpleActivity(), FlingListener {
         private const val APP_DRAWER_CLOSE_DELAY = 300L
         private const val APP_DRAWER_STATE = "app_drawer_state"
         private const val GLASS_BLUR_RADIUS = 90
+        private const val REQUEST_PICK_WALLPAPER = 4321
+        private const val LAUNCH_ZOOM_SCALE = 1.045f
+        private const val LAUNCH_ZOOM_ALPHA = 0.82f
+        private const val LAUNCH_ZOOM_DURATION = 260L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -184,6 +197,7 @@ class MainActivity : SimpleActivity(), FlingListener {
         }
 
         setupWallpaperColorListener()
+        GlassWallpapers.prefetch(applicationContext)
     }
 
     private fun setupWallpaperColorListener() {
@@ -191,6 +205,7 @@ class MainActivity : SimpleActivity(), FlingListener {
             val wallpaperManager = WallpaperManager.getInstance(this)
             wallpaperColorChangeListener = OnColorsChangedListener { colors, which ->
                 if (which and WallpaperManager.FLAG_SYSTEM != 0) {
+                    GlassWallpapers.invalidate()
                     wallpaperSupportsDarkText = colors?.supportsDarkText() ?: run {
                         refreshWallpaperSupportsDarkText()
                         wallpaperSupportsDarkText
@@ -252,6 +267,8 @@ class MainActivity : SimpleActivity(), FlingListener {
     override fun onResume() {
         super.onResume()
         wasJustPaused = false
+        restoreLauncherFromLaunchZoom()
+        GlassWallpapers.prefetch(applicationContext)
         refreshWallpaperSupportsDarkText()
         Handler(Looper.getMainLooper()).postDelayed({
             if (isAllAppsFragmentExpanded() || isWidgetsFragmentExpanded()) {
@@ -352,6 +369,12 @@ class MainActivity : SimpleActivity(), FlingListener {
             UNINSTALL_APP_REQUEST_CODE -> {
                 ensureBackgroundThread {
                     refreshLaunchers()
+                }
+            }
+
+            REQUEST_PICK_WALLPAPER -> {
+                if (resultCode == RESULT_OK) {
+                    handlePickedWallpaper(resultData)
                 }
             }
 
@@ -645,6 +668,10 @@ class MainActivity : SimpleActivity(), FlingListener {
         binding.homeScreenGrid.root.fragmentExpanded()
         binding.homeScreenGrid.root.hideResizeLines()
 
+        if (fragment is AllAppsFragmentBinding) {
+            fragment.root.runEntranceAnimation()
+        }
+
         @SuppressLint("AccessibilityFocus")
         fragment.root.performAccessibilityAction(
             AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS,
@@ -707,8 +734,81 @@ class MainActivity : SimpleActivity(), FlingListener {
         }
     }
 
+    /**
+     * Invisible anchor view positioned exactly over a grid icon so the system
+     * clip-reveal launch animation can grow the app window out of the icon.
+     * Rect is in home-screen-grid coordinates; the grid fills the main holder,
+     * so the two share the same origin.
+     */
+    fun obtainLaunchAnchor(rect: Rect): View? {
+        try {
+            val holder = binding.mainHolder
+            val anchor = mLaunchAnchor ?: View(this).also {
+                it.visibility = View.INVISIBLE
+                holder.addView(
+                    it,
+                    0,
+                    android.widget.FrameLayout.LayoutParams(1, 1)
+                )
+                mLaunchAnchor = it
+            }
+            anchor.x = rect.left.toFloat()
+            anchor.y = rect.top.toFloat()
+            anchor.layoutParams = anchor.layoutParams?.apply {
+                width = max(rect.width(), 1)
+                height = max(rect.height(), 1)
+            }
+            // position synchronously so the reveal origin is exact on the first frame
+            anchor.layout(
+                rect.left, rect.top, rect.left + max(rect.width(), 1), rect.top + max(rect.height(), 1)
+            )
+            holder.requestLayout()
+            return anchor
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
+    /** Launch polish: the launcher recedes slightly, like the wallpaper breathing in. */
+    fun onAppLaunchingStarted() {
+        if (mLaunchZoomRunning) {
+            return
+        }
+        mLaunchZoomRunning = true
+        binding.mainHolder.animate()
+            .scaleX(LAUNCH_ZOOM_SCALE)
+            .scaleY(LAUNCH_ZOOM_SCALE)
+            .alpha(LAUNCH_ZOOM_ALPHA)
+            .setDuration(LAUNCH_ZOOM_DURATION)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        // safety net: if the launch never leaves the activity (toast case),
+        // settle the launcher back on our own
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (mLaunchZoomRunning && !wasJustPaused) {
+                restoreLauncherFromLaunchZoom()
+            }
+        }, LAUNCH_ZOOM_DURATION + 500L)
+    }
+
+    private fun restoreLauncherFromLaunchZoom() {
+        if (!mLaunchZoomRunning) {
+            return
+        }
+        mLaunchZoomRunning = false
+        binding.mainHolder.animate().cancel()
+        binding.mainHolder.scaleX = 1f
+        binding.mainHolder.scaleY = 1f
+        binding.mainHolder.alpha = 1f
+    }
+
     fun homeScreenLongPressed(eventX: Float, eventY: Float) {
         if (isAllAppsFragmentExpanded() || isWidgetsFragmentExpanded()) {
+            return
+        }
+
+        if (binding.homeScreenGrid.root.isFolderLaunching()) {
             return
         }
 
@@ -793,8 +893,28 @@ class MainActivity : SimpleActivity(), FlingListener {
     }
 
     private fun performItemClick(clickedGridItem: HomeScreenGridItem) {
+        val grid = binding.homeScreenGrid.root
         when (clickedGridItem.type) {
-            ITEM_TYPE_ICON -> launchApp(clickedGridItem.packageName, clickedGridItem.activityName)
+            ITEM_TYPE_ICON -> {
+                if (grid.isItemInsideOpenFolder(clickedGridItem)) {
+                    // liquid folders: the panel floods the screen, then the
+                    // app blooms out of it — the reference video transition
+                    grid.launchItemFromFolder(clickedGridItem) { revealRect ->
+                        launchApp(
+                            clickedGridItem.packageName,
+                            clickedGridItem.activityName,
+                            sourceBounds = revealRect
+                        )
+                    }
+                } else {
+                    val iconRect = grid.getClickableRect(clickedGridItem)
+                    launchApp(
+                        clickedGridItem.packageName,
+                        clickedGridItem.activityName,
+                        sourceBounds = iconRect
+                    )
+                }
+            }
             ITEM_TYPE_FOLDER -> openFolder(clickedGridItem)
             ITEM_TYPE_SHORTCUT -> {
                 val id = clickedGridItem.shortcutId
@@ -842,12 +962,12 @@ class MainActivity : SimpleActivity(), FlingListener {
         binding.homeScreenPopupMenuAnchor.y = anchorY
 
         if (mOpenPopupMenu == null) {
-            mOpenPopupMenu = handleGridItemPopupMenu(
-                anchorView = binding.homeScreenPopupMenuAnchor,
+            mOpenPopupMenu = showGridItemGlassMenu(
                 gridItem = gridItem,
                 isOnAllAppsFragment = isOnAllAppsFragment,
                 listener = menuListener
             )
+            mOpenPopupMenu?.show()
         }
     }
 
@@ -859,27 +979,105 @@ class MainActivity : SimpleActivity(), FlingListener {
 
     private fun showMainLongPressMenu(x: Float, y: Float) {
         binding.homeScreenGrid.root.hideResizeLines()
-        binding.homeScreenPopupMenuAnchor.x = x
-        binding.homeScreenPopupMenuAnchor.y =
-            y - resources.getDimension(R.dimen.long_press_anchor_button_offset_y) * 2
-        val contextTheme = ContextThemeWrapper(this, getPopupMenuTheme())
-        PopupMenu(
-            contextTheme,
-            binding.homeScreenPopupMenuAnchor,
-            Gravity.TOP or Gravity.END
-        ).apply {
-            inflate(R.menu.menu_home_screen)
-            menu.findItem(R.id.set_as_default).isVisible = !isDefaultLauncher()
-            setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    R.id.widgets -> showWidgetsFragment()
-                    R.id.wallpapers -> launchWallpapersIntent()
-                    R.id.launcher_settings -> launchSettings()
-                    R.id.set_as_default -> launchSetAsDefaultIntent()
-                }
-                true
+        val items = mutableListOf<GlassMenuDialog.Item>()
+
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.widgets),
+                onClick = { showWidgetsFragment() }
+            )
+        )
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.wallpapers),
+                onClick = { showWallpaperPicker() }
+            )
+        )
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(R.string.launcher_settings),
+                onClick = { launchSettings() }
+            )
+        )
+        if (!isDefaultLauncher()) {
+            items.add(
+                GlassMenuDialog.Item(
+                    title = getString(CommonsR.string.set_as_default),
+                    onClick = { launchSetAsDefaultIntent() }
+                )
+            )
+        }
+
+        GlassMenuDialog(
+            activity = this,
+            title = null,
+            items = items
+        ).show()
+    }
+
+    /** Fossil wallpaper selector, on liquid glass. */
+    private fun showWallpaperPicker() {
+        if (mOpenWallpaperDialog != null) {
+            return
+        }
+        mOpenWallpaperDialog = WallpaperPickerDialog(
+            activity = this,
+            onPickFromGallery = { pickWallpaperFromGallery() },
+            onOpenSystemPicker = { launchWallpapersIntent() },
+            onDismiss = { mOpenWallpaperDialog = null }
+        )
+        mOpenWallpaperDialog?.show()
+    }
+
+    private fun pickWallpaperFromGallery() {
+        try {
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                startActivityForResult(this, REQUEST_PICK_WALLPAPER)
             }
-            show()
+        } catch (_: ActivityNotFoundException) {
+            toast(org.fossify.commons.R.string.no_app_found)
+        }
+    }
+
+    private fun handlePickedWallpaper(resultData: Intent?) {
+        val uri = resultData?.data ?: return
+        ensureBackgroundThread {
+            try {
+                val screen = realScreenSize
+                val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, boundsOptions)
+                } ?: return@ensureBackgroundThread
+
+                if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) {
+                    return@ensureBackgroundThread
+                }
+
+                val targetWidth = screen.x * 2
+                var sampleSize = 1
+                while (boundsOptions.outWidth / (sampleSize * 2) >= targetWidth) {
+                    sampleSize *= 2
+                }
+
+                val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                val bitmap = contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, decodeOptions)
+                } ?: return@ensureBackgroundThread
+
+                val manager = WallpaperManager.getInstance(applicationContext)
+                manager.setBitmap(bitmap)
+                bitmap.recycle()
+                GlassWallpapers.invalidate()
+                runOnUiThread {
+                    toast(R.string.wallpaper_set_successfully)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showErrorToast(e)
+                }
+            }
         }
     }
 

@@ -59,6 +59,7 @@ import org.fossify.home.databinding.HomeScreenGridBinding
 import org.fossify.home.extensions.config
 import org.fossify.home.extensions.getDrawableForPackageName
 import org.fossify.home.extensions.homeScreenGridItemsDB
+import org.fossify.home.glass.GlassWallpapers
 import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_SHORTCUT
@@ -106,6 +107,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
     private var currentPageIndicatorPaint: Paint
     private var folderBackgroundPaint: Paint
     private var folderIconBackgroundPaint: Paint
+    private var folderStrokePaint: Paint
     private var draggedItem: HomeScreenGridItem? = null
     private var resizedWidget: HomeScreenGridItem? = null
     private var isFirstDraw = true
@@ -184,13 +186,19 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
 
         folderBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = context.getProperBackgroundColor()
+            color = context.resources.getColor(R.color.glass_fill)
             style = Paint.Style.FILL
         }
 
         folderIconBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = context.getProperBackgroundColor().adjustAlpha(0.9f)
+            color = context.resources.getColor(R.color.glass_fill)
             style = Paint.Style.FILL
+        }
+
+        folderStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = context.resources.getColor(R.color.glass_stroke)
+            strokeWidth = context.resources.displayMetrics.density
+            style = Paint.Style.STROKE
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
@@ -284,7 +292,9 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         contrastTextPaint.setShadowLayer(
             2f, 0f, 0f, context.getProperTextColor().getContrastColor()
         )
-        folderBackgroundPaint.color = context.getProperBackgroundColor()
+        folderBackgroundPaint.color = context.resources.getColor(R.color.glass_fill)
+        folderIconBackgroundPaint.color = context.resources.getColor(R.color.glass_fill)
+        folderStrokePaint.color = context.resources.getColor(R.color.glass_stroke)
     }
 
     fun removeAppIcon(item: HomeScreenGridItem) {
@@ -1365,12 +1375,37 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                 pivotX = folderRect.centerX(),
                 pivotY = folderRect.centerY()
             ) {
-                canvas.drawRoundRect(
-                    folderRect,
-                    roundedCornerRadius / folder.scale,
-                    roundedCornerRadius / folder.scale,
-                    folderBackgroundPaint
-                )
+                val radius = roundedCornerRadius / folder.scale
+
+                // Liquid glass: real blurred wallpaper refracts through the
+                // panel, with a translucent fill and specular stroke on top.
+                val save = canvas.saveLayer(folderRect, null)
+                val clipPath = Path().apply {
+                    addRoundRect(folderRect, radius, radius, Path.Direction.CW)
+                }
+                canvas.clipPath(clipPath)
+
+                val backdrop = GlassWallpapers.getBackdrop(context)
+                if (backdrop != null) {
+                    val backdropPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                    // slight offset makes the backdrop read as refraction, not a screenshot
+                    val offsetX = folderRect.left * 0.12f
+                    val offsetY = folderRect.top * 0.12f
+                    canvas.drawBitmap(
+                        backdrop, null,
+                        RectF(
+                            folderRect.left - offsetX,
+                            folderRect.top - offsetY,
+                            folderRect.right + offsetX,
+                            folderRect.bottom + offsetY
+                        ),
+                        backdropPaint
+                    )
+                }
+
+                canvas.drawRoundRect(folderRect, radius, radius, folderBackgroundPaint)
+                canvas.drawRoundRect(folderRect, radius, radius, folderStrokePaint)
+
                 val textX = folderRect.left + folderPadding
                 val textY = folderRect.top + folderPadding
                 val staticLayout = StaticLayout.Builder
@@ -1379,7 +1414,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                         0,
                         folder.item.title.length,
                         folderTitleTextPaint,
-                        (folderRect.width() - 2 * folderPadding * folder.scale).toInt()
+                        (folderRect.width() - 2 * folderPadding * folder.scale).toInt().coerceAtLeast(1)
                     )
                     .setMaxLines(1)
                     .setEllipsize(TextUtils.TruncateAt.END)
@@ -1389,10 +1424,15 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                 withTranslation(textX, textY) {
                     staticLayout.draw(canvas)
                 }
+                canvas.restoreToCount(save)
 
-                items.forEach { item ->
+                // staggered reveal: tiles bloom in one after another
+                items.forEachIndexed { index, item ->
                     val itemRect = folder.getItemRect(item)
-                    canvas.drawItemInCell(item, itemRect)
+                    val reveal = folder.itemReveal(index)
+                    if (reveal > 0f) {
+                        canvas.drawFolderItemInCell(item, itemRect, reveal)
+                    }
                 }
             }
         }
@@ -1623,6 +1663,10 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             return null
         }
 
+        if (isFolderLaunching()) {
+            return null
+        }
+
         currentlyOpenFolder?.also { folder ->
             folder.getItems().forEach { gridItem ->
                 val rect = getClickableRect(gridItem)
@@ -1834,6 +1878,9 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
     }
 
     fun openFolder(folder: HomeScreenGridItem) {
+        if (isFolderLaunching()) {
+            return
+        }
         if (currentlyOpenFolder == null) {
             currentlyOpenFolder = folder.toFolder(animateOpening = true)
             redrawGrid()
@@ -1843,7 +1890,18 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         accessibilityHelper.invalidateRoot()
     }
 
-    fun closeFolder(redraw: Boolean = false) {
+    fun closeFolder(redraw: Boolean = false, instant: Boolean = false) {
+        if (isFolderLaunching()) {
+            return
+        }
+        if (instant) {
+            currentlyOpenFolder = null
+            if (redraw) {
+                redrawGrid()
+            }
+            accessibilityHelper.invalidateRoot()
+            return
+        }
         currentlyOpenFolder?.animateClosing {
             currentlyOpenFolder = null
             if (redraw) {
@@ -1853,8 +1911,33 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
     }
 
+    /** True when [item] lives inside the folder that is currently open. */
+    fun isItemInsideOpenFolder(item: HomeScreenGridItem): Boolean {
+        val folder = currentlyOpenFolder ?: return false
+        return item.parentId != null && item.parentId == folder.item.id
+    }
+
+    fun isFolderLaunching(): Boolean = currentlyOpenFolder?.isLaunching() == true
+
+    /**
+     * Liquid folder launch: the glass panel floods the screen, then [onLaunch]
+     * fires with a fullscreen reveal rect and the folder folds itself away.
+     */
+    fun launchItemFromFolder(item: HomeScreenGridItem, onLaunch: (Rect) -> Unit) {
+        val folder = currentlyOpenFolder
+        if (folder == null || !isItemInsideOpenFolder(item) || isFolderLaunching()) {
+            return
+        }
+        folder.animateFullscreenLaunch { fullRect ->
+            currentlyOpenFolder = null
+            redrawGrid()
+            accessibilityHelper.invalidateRoot()
+            onLaunch(fullRect.toRect())
+        }
+    }
+
     override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
-        return if (currentlyOpenFolder != null) {
+        return if (currentlyOpenFolder != null || isFolderLaunching()) {
             true
         } else {
             super.onInterceptTouchEvent(ev)
@@ -1920,6 +2003,64 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
     }
 
+    /**
+     * Folder items bloom in with a per-tile reveal: alpha ramps up while the
+     * tile scales up from slightly beneath the glass surface.
+     */
+    private fun Canvas.drawFolderItemInCell(
+        item: HomeScreenGridItem,
+        cell: Rect,
+        reveal: Float,
+    ) {
+        if (item.id == draggedItem?.id) {
+            return
+        }
+
+        val alpha = (reveal * 255).toInt().coerceIn(0, 255)
+        val itemScale = 0.72f + 0.28f * reveal
+        val pivotX = cell.exactCenterX()
+        val pivotY = cell.exactCenterY()
+
+        val saveCount = saveLayerAlpha(
+            cell.left - iconSize, cell.top - iconSize,
+            cell.right + iconSize, cell.bottom + iconSize, alpha
+        )
+        withScale(x = itemScale, y = itemScale, pivotX = pivotX, pivotY = pivotY) {
+            val drawable = item.drawable?.constantState?.newDrawable()?.mutate()
+            val drawableX = cell.left + iconMargin
+            val drawableY = cell.top + iconMargin
+            drawable?.setBounds(
+                drawableX,
+                drawableY,
+                drawableX + iconSize,
+                drawableY + iconSize
+            )
+            drawable?.draw(this)
+
+            if (item.title.isNotEmpty() && context.config.showHomeAppLabels) {
+                val textX = cell.left.toFloat() + labelSideMargin
+                val textY = cell.top.toFloat() + iconSize + iconMargin + labelSideMargin
+                val staticLayout = StaticLayout.Builder
+                    .obtain(
+                        item.title,
+                        0,
+                        item.title.length,
+                        contrastTextPaint,
+                        cellWidth - 2 * labelSideMargin
+                    )
+                    .setMaxLines(2)
+                    .setEllipsize(TextUtils.TruncateAt.END)
+                    .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                    .build()
+
+                withTranslation(textX, textY) {
+                    staticLayout.draw(this)
+                }
+            }
+        }
+        restoreToCount(saveCount)
+    }
+
     private fun Rect.withOffset(offsetX: Int, offsetY: Int, block: Rect.() -> Unit) {
         offset(offsetX, offsetY)
         try {
@@ -1946,23 +2087,30 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         animateOpening: Boolean,
     ) {
         var scale: Float = 1f
+        var reveal: Float = 1f
         private var closing = false
+        private var launchAnimatorRunning = false
 
         init {
             if (animateOpening) {
                 scale = 0f
+                reveal = 0f
                 post {
                     ValueAnimator.ofFloat(0f, 1f)
                         .apply {
-                            interpolator = DecelerateInterpolator()
+                            interpolator = OvershootInterpolator(0.9f)
                             addUpdateListener {
-                                scale = it.animatedValue as Float
+                                val fraction = it.animatedValue as Float
+                                scale = fraction
+                                // tiles bloom in slightly after the glass panel
+                                reveal = ((fraction - 0.35f) / 0.65f).coerceIn(0f, 1f)
                                 redrawGrid()
                             }
                             addListener(object : AnimatorListenerAdapter() {
                                 override fun onAnimationEnd(animation: Animator) {
                                     super.onAnimationEnd(animation)
                                     scale = 1f
+                                    reveal = 1f
                                     redrawGrid()
                                 }
                             })
@@ -1972,6 +2120,52 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
                 }
             }
         }
+
+        fun itemReveal(index: Int): Float {
+            return (reveal - index * FOLDER_ITEM_STAGGER).coerceIn(0f, 1f)
+        }
+
+        /**
+         * Flood the screen with the glass panel, then hand a fullscreen rect
+         * to the caller which launches the app out of it — the reference
+         * video transition, without the jank.
+         */
+        fun animateFullscreenLaunch(onLaunch: (RectF) -> Unit) {
+            if (launchAnimatorRunning || closing) {
+                return
+            }
+            launchAnimatorRunning = true
+            post {
+                val folderRect = RectF(getDrawingRect())
+                val coverScale = max(
+                    width.toFloat() / max(folderRect.width(), 1f),
+                    height.toFloat() / max(folderRect.height(), 1f)
+                ) * 1.25f
+
+                ValueAnimator.ofFloat(1f, coverScale)
+                    .apply {
+                        interpolator = DecelerateInterpolator(1.4f)
+                        addUpdateListener {
+                            val fraction = it.animatedFraction
+                            scale = it.animatedValue as Float
+                            reveal = 1f - fraction
+                            redrawGrid()
+                        }
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                super.onAnimationEnd(animation)
+                                val fullRect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+                                onLaunch(fullRect)
+                                launchAnimatorRunning = false
+                            }
+                        })
+                        duration = FOLDER_LAUNCH_ANIMATION_DURATION
+                        start()
+                    }
+            }
+        }
+
+        fun isLaunching(): Boolean = launchAnimatorRunning
 
         fun getItems(): List<HomeScreenGridItem> {
             return gridItems
@@ -1993,15 +2187,15 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
 
             val bitmap = createBitmap(iconSize, iconSize)
             val canvas = Canvas(bitmap)
-            val circlePath = Path().apply {
-                addCircle(
-                    (iconSize / 2).toFloat(),
-                    (iconSize / 2).toFloat(),
-                    (iconSize / 2).toFloat(),
-                    Path.Direction.CCW
+            // liquid glass folder tile: frosted rounded square, not a flat circle
+            val tilePath = Path().apply {
+                val radius = iconSize * 0.27f
+                addRoundRect(
+                    0f, 0f, iconSize.toFloat(), iconSize.toFloat(),
+                    radius, radius, Path.Direction.CW
                 )
             }
-            canvas.clipPath(circlePath)
+            canvas.clipPath(tilePath)
             canvas.drawPaint(folderIconBackgroundPaint)
             val folderColumnCount = ceil(sqrt(itemsCount.toDouble())).roundToInt()
             val folderRowCount = ceil(itemsCount.toFloat() / folderColumnCount).roundToInt()
@@ -2175,6 +2369,8 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         private const val FOLDER_OPEN_HOLD_THRESHOLD = 500L
         private const val FOLDER_CLOSE_HOLD_THRESHOLD = 300L
         private const val FOLDER_ANIMATION_DURATION = 200L
+        private const val FOLDER_LAUNCH_ANIMATION_DURATION = 320L
+        private const val FOLDER_ITEM_STAGGER = 0.06f
     }
 }
 

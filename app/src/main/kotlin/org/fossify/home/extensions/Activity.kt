@@ -1,36 +1,25 @@
 package org.fossify.home.extensions
 
 import android.app.Activity
+import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Process
 import android.provider.Settings
-import android.view.ContextThemeWrapper
-import android.view.Gravity
-import android.view.Menu
 import android.view.View
-import android.app.ActivityOptions
-import androidx.appcompat.widget.PopupMenu
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.MenuCompat
-import androidx.core.view.forEach
-import com.google.android.material.color.MaterialColors
-import org.fossify.commons.extensions.getPopupMenuTheme
-import org.fossify.commons.extensions.getProperTextColor
-import org.fossify.commons.extensions.isDynamicTheme
 import org.fossify.commons.extensions.showErrorToast
-import org.fossify.commons.helpers.isQPlus
-import org.fossify.commons.helpers.isSPlus
+import org.fossify.commons.R as CommonsR
 import org.fossify.home.R
 import org.fossify.home.activities.SettingsActivity
+import org.fossify.home.glass.GlassMenuDialog
 import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_WIDGET
@@ -38,14 +27,44 @@ import org.fossify.home.helpers.UNINSTALL_APP_REQUEST_CODE
 import org.fossify.home.interfaces.ItemMenuListener
 import org.fossify.home.models.HomeScreenGridItem
 
-fun Activity.launchApp(packageName: String, activityName: String) {
-    // Fossil app-open animation: the launched app blooms in while the launcher
-    // sinks back, giving every launch a liquid-glass depth transition.
-    val options = ActivityOptions.makeCustomAnimation(
+/**
+ * Fossil v1.0.2 launch path.
+ *
+ * With a source rect (the tapped icon or the open folder panel) the launched
+ * app is revealed by the system's clip-reveal animation expanding out of that
+ * rect — the fluid, non-buggy variant of the reference video transition.
+ * Without a rect it falls back to the legacy scale/fade animation.
+ */
+fun Activity.launchApp(
+    packageName: String,
+    activityName: String,
+    sourceView: View? = null,
+    sourceBounds: Rect? = null,
+) {
+    val options = when {
+        sourceView != null && sourceView.width > 0 && sourceView.height > 0 -> {
+            ActivityOptions.makeClipRevealAnimation(
+                sourceView, 0, 0, sourceView.width, sourceView.height
+            ).toBundle()
+        }
+
+        sourceBounds != null && sourceBounds.width() > 0 && sourceBounds.height() > 0 -> {
+            (this as? org.fossify.home.activities.MainActivity)?.obtainLaunchAnchor(sourceBounds)
+                ?.let { anchor ->
+                    ActivityOptions.makeClipRevealAnimation(
+                        anchor, 0, 0, sourceBounds.width(), sourceBounds.height()
+                    ).toBundle()
+                }
+        }
+
+        else -> null
+    } ?: ActivityOptions.makeCustomAnimation(
         this,
         R.anim.fossil_app_open,
         R.anim.fossil_app_open_exit
     ).toBundle()
+
+    (this as? org.fossify.home.activities.MainActivity)?.onAppLaunchingStarted()
 
     try {
         Intent(Intent.ACTION_MAIN).apply {
@@ -88,100 +107,144 @@ fun Activity.uninstallApp(packageName: String) {
     }
 }
 
-fun Activity.handleGridItemPopupMenu(
-    anchorView: View,
+/**
+ * Fossil liquid glass menu: the icon long-press actions live on a frosted
+ * glass sheet instead of the framework PopupMenu. Same visibility rules and
+ * callbacks as before, now with real blur and liquid ripples.
+ */
+fun Activity.showGridItemGlassMenu(
     gridItem: HomeScreenGridItem,
     isOnAllAppsFragment: Boolean,
     listener: ItemMenuListener,
-): PopupMenu {
-    val contextTheme = ContextThemeWrapper(this, getPopupMenuTheme())
-    return PopupMenu(contextTheme, anchorView, Gravity.TOP or Gravity.END).apply {
-        if (isQPlus()) {
-            setForceShowIcon(true)
-        }
+): GlassMenuDialog {
+    val items = mutableListOf<GlassMenuDialog.Item>()
 
-        inflate(R.menu.menu_app_icon)
-        menu.forEach {
-            val default = getProperTextColor()
-            val color = if (isSPlus() && isDynamicTheme()) {
-                default
-            } else {
-                MaterialColors.getColor(contextTheme, android.R.attr.actionMenuTextColor, default)
-            }
-            it.iconTintList = ColorStateList.valueOf(color)
-        }
-        menu.findItem(R.id.rename).isVisible =
-            (gridItem.type == ITEM_TYPE_ICON || gridItem.type == ITEM_TYPE_FOLDER) && !isOnAllAppsFragment
-        menu.findItem(R.id.hide_icon).isVisible =
-            gridItem.type == ITEM_TYPE_ICON && isOnAllAppsFragment
-        menu.findItem(R.id.resize).isVisible = gridItem.type == ITEM_TYPE_WIDGET
-        menu.findItem(R.id.app_info).isVisible = gridItem.type == ITEM_TYPE_ICON
-        menu.findItem(R.id.uninstall).isVisible = gridItem.type == ITEM_TYPE_ICON
-                && canAppBeUninstalled(gridItem.packageName)
-                && gridItem.packageName != packageName
-        menu.findItem(R.id.remove).isVisible = !isOnAllAppsFragment
+    if (gridItem.type == ITEM_TYPE_ICON) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(R.string.app_info),
+                icon = getDrawable(CommonsR.drawable.ic_info_vector),
+                onClick = { listener.appInfo(gridItem) }
+            )
+        )
+    }
 
-        val launcherApps =
-            applicationContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        val shortcuts = if (launcherApps.hasShortcutHostPermission()) {
-            try {
-                val query = LauncherApps.ShortcutQuery().setQueryFlags(
-                    LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
-                ).setPackage(gridItem.packageName)
-                launcherApps.getShortcuts(query, Process.myUserHandle())
-            } catch (e: Exception) {
-                null
-            }
-        } else {
+    if (gridItem.type == ITEM_TYPE_ICON && isOnAllAppsFragment) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.hide),
+                icon = getDrawable(CommonsR.drawable.ic_hide_vector),
+                onClick = { listener.hide(gridItem) }
+            )
+        )
+    }
+
+    if (gridItem.type == ITEM_TYPE_WIDGET) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.resize),
+                icon = getDrawable(R.drawable.ic_resize_vector),
+                onClick = { listener.resize(gridItem) }
+            )
+        )
+    }
+
+    if ((gridItem.type == ITEM_TYPE_ICON || gridItem.type == ITEM_TYPE_FOLDER)
+        && !isOnAllAppsFragment
+    ) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.rename),
+                icon = getDrawable(CommonsR.drawable.ic_rename_vector),
+                onClick = { listener.rename(gridItem) }
+            )
+        )
+    }
+
+    if (!isOnAllAppsFragment) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(CommonsR.string.remove),
+                icon = getDrawable(CommonsR.drawable.ic_cross_vector),
+                onClick = { listener.remove(gridItem) }
+            )
+        )
+    }
+
+    if (gridItem.type == ITEM_TYPE_ICON
+        && canAppBeUninstalled(gridItem.packageName)
+        && gridItem.packageName != packageName
+    ) {
+        items.add(
+            GlassMenuDialog.Item(
+                title = getString(R.string.uninstall),
+                icon = getDrawable(org.fossify.commons.R.drawable.ic_delete_vector),
+                danger = true,
+                onClick = { listener.uninstall(gridItem) }
+            )
+        )
+    }
+
+    // app shortcuts get their own liquid glass section
+    val launcherApps =
+        applicationContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+    val shortcuts = if (launcherApps.hasShortcutHostPermission()) {
+        try {
+            val query = LauncherApps.ShortcutQuery().setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC
+                        or LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                        or LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+            ).setPackage(gridItem.packageName)
+            launcherApps.getShortcuts(query, Process.myUserHandle())
+        } catch (e: Exception) {
             null
         }
+    } else {
+        null
+    }
 
-        val hasShortcuts = !shortcuts.isNullOrEmpty()
-        MenuCompat.setGroupDividerEnabled(menu, hasShortcuts)
-        menu.setGroupVisible(R.id.group_shortcuts, hasShortcuts)
-        if (hasShortcuts) {
+    if (!shortcuts.isNullOrEmpty()) {
+        var addedFirstShortcut = false
+        shortcuts.forEach { shortcutInfo ->
             val iconSize = resources.getDimensionPixelSize(R.dimen.menu_icon_size)
-            shortcuts?.forEach { shortcutInfo ->
-                val iconDrawable = launcherApps.getShortcutIconDrawable(
+            val iconDrawable = try {
+                launcherApps.getShortcutIconDrawable(
                     shortcutInfo, resources.displayMetrics.densityDpi
                 )
-
-                menu.add(R.id.group_shortcuts, Menu.NONE, Menu.NONE, shortcutInfo.getLabel())
-                    .setIcon(
-                        (iconDrawable ?: Color.TRANSPARENT.toDrawable())
-                            .toBitmap(width = iconSize, height = iconSize)
-                            .toDrawable(resources)
-                    )
-                    .setOnMenuItemClickListener { _ ->
+            } catch (_: Exception) {
+                null
+            }
+            items.add(
+                GlassMenuDialog.Item(
+                    title = shortcutInfo.label?.toString() ?: "",
+                    icon = (iconDrawable ?: Color.TRANSPARENT.toDrawable())
+                        .toBitmap(width = iconSize, height = iconSize)
+                        .toDrawable(resources),
+                    dividedAbove = !addedFirstShortcut,
+                    onClick = {
                         listener.onAnyClick()
-                        val id = shortcutInfo.id
-                        val packageName = shortcutInfo.`package`
-                        val userHandle = Process.myUserHandle()
-                        launcherApps.startShortcut(packageName, id, Rect(), null, userHandle)
-                        true
+                        try {
+                            launcherApps.startShortcut(
+                                shortcutInfo.`package`,
+                                shortcutInfo.id,
+                                Rect(),
+                                null,
+                                Process.myUserHandle()
+                            )
+                        } catch (_: Exception) {
+                        }
                     }
-            }
+                )
+            )
+            addedFirstShortcut = true
         }
+    }
 
-        setOnMenuItemClickListener { item ->
-            listener.onAnyClick()
-            when (item.itemId) {
-                R.id.hide_icon -> listener.hide(gridItem)
-                R.id.rename -> listener.rename(gridItem)
-                R.id.resize -> listener.resize(gridItem)
-                R.id.app_info -> listener.appInfo(gridItem)
-                R.id.remove -> listener.remove(gridItem)
-                R.id.uninstall -> listener.uninstall(gridItem)
-            }
-            true
-        }
-
-        setOnDismissListener {
-            listener.onDismiss()
-        }
-
-        listener.beforeShow(menu)
-
-        show()
+    return GlassMenuDialog(
+        activity = this,
+        title = gridItem.title.takeIf { it.isNotBlank() },
+        items = items
+    ) {
+        listener.onDismiss()
     }
 }

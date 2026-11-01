@@ -45,4 +45,8 @@ class Config(context: Context) : BaseConfig(context) {
     var showHomeAppLabels: Boolean
         get() = prefs.getBoolean(SHOW_HOME_APP_LABELS, true)
         set(showHomeAppLabels) = prefs.edit().putBoolean(SHOW_HOME_APP_LABELS, showHomeAppLabels).apply()
+
+    var drawerGlassIcons: Boolean
+        get() = prefs.getBoolean(DRAWER_GLASS_ICONS, true)
+        set(drawerGlassIcons) = prefs.edit().putBoolean(DRAWER_GLASS_ICONS, drawerGlassIcons).apply()
 }

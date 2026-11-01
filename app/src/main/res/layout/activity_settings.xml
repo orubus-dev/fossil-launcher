@@ -6,6 +6,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Fossil glass skin: real blurred wallpaper + scrim behind the settings card -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/settings_wallpaper_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.85"
+        android:importantForAccessibility="no"
+        tools:ignore="UnusedAttribute" />
+
+    <View
+        android:id="@+id/settings_wallpaper_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#59000000" />
+
     <org.fossify.commons.views.MyAppBarLayout
         android:id="@+id/settings_appbar"
         android:layout_width="match_parent"
@@ -15,7 +31,7 @@
             android:id="@+id/settings_toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/color_primary"
+            android:background="@android:color/transparent"
             app:menu="@menu/menu_settings"
             app:title="@string/settings"
             app:titleTextAppearance="@style/AppTheme.ActionBar.TitleTextStyle" />
@@ -249,6 +265,22 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/show_app_labels" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_glass_icons_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/ripple_background">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_glass_icons"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/liquid_glass_icons" />
 
             </RelativeLayout>
 

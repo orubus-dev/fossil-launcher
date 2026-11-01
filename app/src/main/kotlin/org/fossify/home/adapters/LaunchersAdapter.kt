@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -17,19 +18,21 @@ import com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getColoredDrawableWithColor
 import org.fossify.commons.extensions.getProperTextColor
+import org.fossify.commons.extensions.isDarkMode
 import org.fossify.commons.extensions.realScreenSize
 import org.fossify.home.R
 import org.fossify.home.activities.SimpleActivity
 import org.fossify.home.databinding.ItemLauncherLabelBinding
 import org.fossify.home.extensions.animateScale
 import org.fossify.home.extensions.config
+import org.fossify.home.glass.GlassIcons
 import org.fossify.home.interfaces.AllAppsListener
 import org.fossify.home.models.AppLauncher
 
 class LaunchersAdapter(
     val activity: SimpleActivity,
     val allAppsListener: AllAppsListener,
-    val itemClick: (Any) -> Unit
+    val itemClick: (Any, View?) -> Unit
 ) : ListAdapter<AppLauncher, LaunchersAdapter.ViewHolder>(AppLauncherDiffCallback()),
     RecyclerViewFastScroller.OnPopupTextUpdate {
 
@@ -47,7 +50,7 @@ class LaunchersAdapter(
 
     fun launchFirstApp(): Boolean {
         val launcher = currentList.firstOrNull() ?: return false
-        itemClick(launcher)
+        itemClick(launcher, null)
         return true
     }
 
@@ -91,7 +94,32 @@ class LaunchersAdapter(
                 binding.launcherLabel.beVisibleIf(activity.config.showDrawerAppLabels)
                 binding.launcherIcon.setPadding(iconPadding, iconPadding, iconPadding, 0)
 
-                if (launcher.drawable != null && binding.launcherIcon.tag == true) {
+                if (activity.config.drawerGlassIcons) {
+                    // liquid glass tile: no Glide, generated glyph + disk cache
+                    val tileSize = activity.realScreenSize.x / activity.config.drawerColumnCount -
+                            2 * iconPadding
+                    val placeholderDrawable = activity.resources.getColoredDrawableWithColor(
+                        drawableId = R.drawable.placeholder_drawable,
+                        color = launcher.thumbnailColor
+                    )
+                    binding.launcherIcon.setImageDrawable(placeholderDrawable)
+                    GlassIcons.getTile(
+                        context = activity,
+                        launcher = launcher,
+                        sizePx = tileSize,
+                        darkTheme = activity.isDarkMode()
+                    ) { tile ->
+                        if (tile != null) {
+                            // holder may be recycled for another app by then
+                            val current = currentList.getOrNull(bindingAdapterPosition)
+                            if (current == null || current.getLauncherIdentifier() ==
+                                launcher.getLauncherIdentifier()
+                            ) {
+                                binding.launcherIcon.setImageBitmap(tile)
+                            }
+                        }
+                    }
+                } else if (launcher.drawable != null && binding.launcherIcon.tag == true) {
                     binding.launcherIcon.setImageDrawable(launcher.drawable)
                 } else {
                     val placeholderDrawable = activity.resources.getColoredDrawableWithColor(
@@ -113,7 +141,7 @@ class LaunchersAdapter(
                         })
                 }
 
-                setOnClickListener { itemClick(launcher) }
+                setOnClickListener { itemClick(launcher, binding.launcherIcon) }
                 setOnLongClickListener {
                     val location = IntArray(2)
                     getLocationOnScreen(location)
@@ -128,7 +156,9 @@ class LaunchersAdapter(
                 setOnTouchListener { _, event ->
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
-                            binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_PRESSED
+                            if (binding.launcherIcon.drawable != null) {
+                                binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_PRESSED
+                            }
                             animateScale(
                                 from = LAUNCHER_SCALE_NORMAL,
                                 to = LAUNCHER_SCALE_PRESSED,
@@ -138,7 +168,9 @@ class LaunchersAdapter(
 
                         MotionEvent.ACTION_UP,
                         MotionEvent.ACTION_CANCEL -> {
-                            binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_NORMAL
+                            if (binding.launcherIcon.drawable != null) {
+                                binding.launcherIcon.drawable.alpha = LAUNCHER_ALPHA_NORMAL
+                            }
                             animateScale(
                                 from = LAUNCHER_SCALE_PRESSED,
                                 to = LAUNCHER_SCALE_NORMAL,
@@ -163,6 +195,32 @@ class LaunchersAdapter(
         private const val LAUNCHER_SCALE_DOWN_DURATION = 50L
         private const val LAUNCHER_ALPHA_NORMAL = 255
         private const val LAUNCHER_ALPHA_PRESSED = 220
+
+        /** Tiles bloom in with this cadence during the drawer entrance. */
+        fun animateEntrance(recyclerView: RecyclerView) {
+            val layoutManager = recyclerView.layoutManager ?: return
+            val delayStep = 16L
+
+            var index = 0
+            for (childIndex in 0 until layoutManager.childCount) {
+                val child = layoutManager.getChildAt(childIndex) ?: continue
+                if (child.visibility == View.VISIBLE) {
+                    val delay = index * delayStep
+                    if (delay <= 220L) {
+                        child.alpha = 0f
+                        child.translationY = 30f
+                        child.animate()
+                            .alpha(1f)
+                            .translationY(0f)
+                            .setStartDelay(delay)
+                            .setDuration(240L)
+                            .setInterpolator(DecelerateInterpolator(1.5f))
+                            .start()
+                        index++
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -19,6 +19,12 @@
     <string name="double_tap_to_lock">Double tap to lock screen</string>
     <string name="lock_device_admin_hint">To enable the double tap to lock screen feature, you need to grant admin permission. Note that the app cannot be uninstalled until this permission is removed.</string>
     <string name="lock_device_admin_warning">Deactivating admin permission will disable the double tap to lock screen feature.</string>
+    <!-- Fossil liquid glass v1.0.2 -->
+    <string name="liquid_glass_icons">Liquid glass icons in drawer</string>
+    <string name="wallpaper_current">Current wallpaper</string>
+    <string name="wallpaper_pick_from_gallery">Pick wallpaper from gallery</string>
+    <string name="wallpaper_open_system_picker">Open system wallpaper picker</string>
+    <string name="wallpaper_set_successfully">Wallpaper set successfully</string>
     <!--
         Haven't found some strings? There's more at
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res

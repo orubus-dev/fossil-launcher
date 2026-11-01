@@ -12,6 +12,7 @@ import org.fossify.commons.extensions.launchMoreAppsFromUsIntent
 import org.fossify.commons.extensions.updateTextColors
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
+import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isSPlus
 import org.fossify.commons.helpers.isTiramisuPlus
 import org.fossify.commons.models.FAQItem
@@ -20,6 +21,7 @@ import org.fossify.home.BuildConfig
 import org.fossify.home.R
 import org.fossify.home.databinding.ActivitySettingsBinding
 import org.fossify.home.extensions.config
+import org.fossify.home.glass.GlassWallpapers
 import org.fossify.home.helpers.MAX_COLUMN_COUNT
 import org.fossify.home.helpers.MAX_ROW_COUNT
 import org.fossify.home.helpers.MIN_COLUMN_COUNT
@@ -36,6 +38,7 @@ class SettingsActivity : SimpleActivity() {
         setContentView(binding.root)
 
         applyGlassBlur()
+        applyGlassSkin()
         setupEdgeToEdge(padBottomSystem = listOf(binding.settingsNestedScrollview))
         setupMaterialScrollListener(binding.settingsNestedScrollview, binding.settingsAppbar)
         setupOptionsMenu()
@@ -56,9 +59,32 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
+    /**
+     * Fossil glass skin: the settings page is laid over an actual blurred-out
+     * sample of the current wallpaper, so even devices without cross-window
+     * blur get the full frosted look. The glass card floats above it.
+     */
+    private fun applyGlassSkin() {
+        binding.settingsAppbar.background = null
+        binding.settingsToolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        ensureBackgroundThread {
+            val snapshot = GlassWallpapers.getSnapshot(applicationContext) ?: return@ensureBackgroundThread
+            val blurred = GlassWallpapers.blurSample(
+                snapshot,
+                resources.displayMetrics.widthPixels / 2,
+                resources.displayMetrics.heightPixels / 2
+            )
+            runOnUiThread {
+                binding.settingsWallpaperBackdrop.setImageBitmap(blurred)
+                binding.settingsWallpaperBackdrop.animate().alpha(1f).setDuration(300L).start()
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         setupTopAppBar(binding.settingsAppbar, NavigationIcon.Arrow)
+        applyGlassSkin()
         refreshMenuItems()
 
         setupCustomizeColors()
@@ -66,6 +92,7 @@ class SettingsActivity : SimpleActivity() {
         setupDoubleTapToLock()
         setupCloseAppDrawerOnOtherAppOpen()
         setupOpenKeyboardOnAppDrawer()
+        setupGlassIcons()
         setupDrawerColumnCount()
         setupDrawerSearchBar()
         setupShowDrawerAppLabels()
@@ -167,6 +194,14 @@ class SettingsActivity : SimpleActivity() {
         binding.settingsCloseAppDrawerOnOtherAppHolder.setOnClickListener {
             binding.settingsCloseAppDrawerOnOtherApp.toggle()
             config.closeAppDrawer = binding.settingsCloseAppDrawerOnOtherApp.isChecked
+        }
+    }
+
+    private fun setupGlassIcons() {
+        binding.settingsGlassIcons.isChecked = config.drawerGlassIcons
+        binding.settingsGlassIconsHolder.setOnClickListener {
+            binding.settingsGlassIcons.toggle()
+            config.drawerGlassIcons = binding.settingsGlassIcons.isChecked
         }
     }
 
