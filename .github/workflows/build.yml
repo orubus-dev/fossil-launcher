@@ -77,7 +77,7 @@ jobs:
           VER=$(grep -oP '^VERSION_NAME=\K.*' gradle.properties)
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: Fossil-release-apk
           path: apk
