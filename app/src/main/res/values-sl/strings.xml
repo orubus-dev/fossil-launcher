@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Zaganjalnik</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Nastavitve zaganjalnika</string>
     <string name="app_info">Podatki o aplikaciji</string>
     <string name="touch_hold_widget">Dolgo pritisnite pripomoček in povlecite na domači zaslon</string>

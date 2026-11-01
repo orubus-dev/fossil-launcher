@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Lançador</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Definições</string>
     <string name="app_info">Info da aplicação</string>
     <string name="touch_hold_widget">Toque longo no widget e arraste-o para o ecrã</string>

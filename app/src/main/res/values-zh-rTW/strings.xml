@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">啟動器</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">啟動器設定</string>
     <string name="app_info">應用程式資訊</string>
     <string name="touch_hold_widget">長按小工具並將其拖曳至你的主畫面</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Paleidyklė</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Paleidyklės nustatymai</string>
     <string name="app_info">Programos informacija</string>
     <string name="touch_hold_widget">Ilgai paspauskite valdiklį ir nutempkite jį į pradžios ekraną.</string>

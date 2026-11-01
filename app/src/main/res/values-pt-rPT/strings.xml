@@ -2,7 +2,7 @@
 <resources>
     <string name="hide_icon">Ocultar ícone</string>
     <string name="add_hidden_icons">Adicionar ícones ocultos</string>
-    <string name="app_launcher_name">Lançador</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Definições</string>
     <string name="manage_hidden_icons">Gerir ícones ocultos</string>
     <string name="hidden_icons">Ícones ocultos</string>

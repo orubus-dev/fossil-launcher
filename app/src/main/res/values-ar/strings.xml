@@ -12,7 +12,7 @@
     <string name="app_drawer_settings">درج التطبيق</string>
     <string name="close_app_drawer_on_app_open">إغلاق درج التطبيق عند فتح تطبيق</string>
     <string name="widget_too_big">الأداة كبيرة جدًا بالنسبة لحجم الشاشة الرئيسية الحالي</string>
-    <string name="app_launcher_name">المشغل</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="auto_show_keyboard_in_app_drawer">إظهار لوحة المفاتيح في الدرج تلقائيًا</string>
     <string name="home_screen_settings">الشاشة الرئيسية</string>
     <string name="double_tap_to_lock">انقر نقراً مزدوجاً لقفل الشاشة</string>

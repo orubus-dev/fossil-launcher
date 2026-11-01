@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">App-starter</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Innstillinger for App-starter</string>
     <string name="app_info">Programinfo</string>
     <string name="touch_hold_widget">Lang-trykk miniprogrammet og dra det til din hjemmeskjerm</string>

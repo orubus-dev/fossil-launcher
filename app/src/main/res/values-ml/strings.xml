@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">ലോഞ്ചർ</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">ലോഞ്ചർ ക്രമീകരണങ്ങൾ</string>
     <string name="app_info">പ്രയോഗ വിവരം</string>
     <string name="uninstall">അൺഇൻസ്റ്റാൾ ചെയ്യുക</string>

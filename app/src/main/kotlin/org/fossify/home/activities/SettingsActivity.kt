@@ -12,6 +12,7 @@ import org.fossify.commons.extensions.launchMoreAppsFromUsIntent
 import org.fossify.commons.extensions.updateTextColors
 import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
+import org.fossify.commons.helpers.isSPlus
 import org.fossify.commons.helpers.isTiramisuPlus
 import org.fossify.commons.models.FAQItem
 import org.fossify.commons.models.RadioItem
@@ -34,9 +35,26 @@ class SettingsActivity : SimpleActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 
+        applyGlassBlur()
         setupEdgeToEdge(padBottomSystem = listOf(binding.settingsNestedScrollview))
         setupMaterialScrollListener(binding.settingsNestedScrollview, binding.settingsAppbar)
         setupOptionsMenu()
+    }
+
+    /**
+     * Fossil liquid glass settings: blur the wallpaper behind the window so the
+     * frosted settings card sits on real depth. No-ops where blur is unsupported.
+     */
+    private fun applyGlassBlur() {
+        if (!isSPlus()) {
+            return
+        }
+        try {
+            if (window.isCrossWindowBlurEnabled) {
+                window.setBackgroundBlurRadius(110)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     override fun onResume() {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Лаунчер</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Налаштування</string>
     <string name="app_info">Про застосунок</string>
     <string name="touch_hold_widget">Натисніть і утримуйте віджет і перетягніть його на головний екран</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Иницијатор</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Подешавања покретача</string>
     <string name="app_info">Информације о апликацији</string>
     <string name="touch_hold_widget">Дуго притисните виџет и превуците га на почетни екран</string>

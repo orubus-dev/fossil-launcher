@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Abiarazlea</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="touch_hold_widget">Luze sakatu trepeta eta arrastatu hasierako pantailara</string>
     <string name="uninstall">Desinstalatu</string>
     <string name="hide_icon">Ezkutatu ikonoa</string>

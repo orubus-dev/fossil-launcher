@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Lanzador</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Axustes do lanzador</string>
     <string name="app_info">Información da aplicación</string>
     <string name="touch_hold_widget">Manteña premido o widget e arrástrao a túa pantalla de inicio</string>

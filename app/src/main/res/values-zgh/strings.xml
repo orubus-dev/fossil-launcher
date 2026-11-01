@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">ⵜⴰⵎⵣⵡⴰⵔⵓⵜ</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">ⵜⵉⵙⵖⴰⵍ ⵏ ⵜⵎⵣⵡⴰⵔⵓⵜ</string>
     <string name="app_info">ⵉⵏⵖⵎⵉⵙⵏ ⵅⴼ ⵜⵙⵏⵙⵉ</string>
     <string name="touch_hold_widget">ⴰⴷⵔ ⵎⵍⵉⵃ ⵅⴼ widget ⵜⴰⵡⵉ ⵜⵜ ⵖⵔ ⵓⵎⵉⵥⴰⵕ ⵏⵏⴽ ⴰⵎⵇⵇⵔⴰⵏ</string>

@@ -16,6 +16,7 @@ import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.Menu
 import android.view.View
+import android.app.ActivityOptions
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
@@ -38,18 +39,26 @@ import org.fossify.home.interfaces.ItemMenuListener
 import org.fossify.home.models.HomeScreenGridItem
 
 fun Activity.launchApp(packageName: String, activityName: String) {
+    // Fossil app-open animation: the launched app blooms in while the launcher
+    // sinks back, giving every launch a liquid-glass depth transition.
+    val options = ActivityOptions.makeCustomAnimation(
+        this,
+        R.anim.fossil_app_open,
+        R.anim.fossil_app_open_exit
+    ).toBundle()
+
     try {
         Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
             `package` = packageName
             component = ComponentName.unflattenFromString("$packageName/$activityName")
             addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
-            startActivity(this)
+            startActivity(this, options)
         }
     } catch (e: Exception) {
         try {
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            startActivity(launchIntent)
+            startActivity(launchIntent, options)
         } catch (e: Exception) {
             showErrorToast(e)
         }

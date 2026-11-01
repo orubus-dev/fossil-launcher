@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Pokretač</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Postavke pokretača</string>
     <string name="app_info">Informacije o aplikaciji</string>
     <string name="touch_hold_widget">Pritisni widget i povuci ga na početni ekran</string>

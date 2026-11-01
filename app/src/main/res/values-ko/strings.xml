@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">런처</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">런처 설정</string>
     <string name="app_info">앱 정보</string>
     <string name="touch_hold_widget">위젯을 길게 누르고 홈 화면에 드래그하세요</string>

@@ -2,7 +2,7 @@
 <resources>
     <string name="app_info">دووسمندیا برنومه</string>
     <string name="uninstall">پاک کردن پۊرنیڌن</string>
-    <string name="app_launcher_name">لانچر</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="add_hidden_icons">ٱووردن آیکونا بؽڌاری</string>
     <string name="manage_hidden_icons">دؽوۉداری آیکونا بؽڌاری</string>
     <string name="hidden_icons">آیکونا بؽڌاری</string>

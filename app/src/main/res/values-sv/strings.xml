@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Startprogram</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Inställningar för startprogrammet</string>
     <string name="app_info">Appinformation</string>
     <string name="touch_hold_widget">Tryck länge på widgeten och dra den på startskärmen</string>

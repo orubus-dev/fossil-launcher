@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Spúšťač</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Nastavenia spúšťača</string>
     <string name="app_info">Informácie o aplikácii</string>
     <string name="touch_hold_widget">Umiestnite widget na domovskú obrazovku dlhým podržaním a potiahnutím</string>

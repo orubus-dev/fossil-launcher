@@ -23,15 +23,17 @@ fun hasSigningVars(): Boolean {
 }
 
 base {
-    val versionCode = project.property("VERSION_CODE").toString().toInt()
-    archivesName = "launcher-$versionCode"
+    val versionName = project.property("VERSION_NAME").toString()
+    archivesName = "Fossil-$versionName"
 }
 
 android {
     compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
 
     defaultConfig {
-        applicationId = project.property("APP_ID").toString()
+        // Fossil rebrand: new applicationId, namespace stays APP_ID (org.fossify.home)
+        // so Kotlin sources, R and BuildConfig keep resolving without a package rename.
+        applicationId = project.property("APP_PACKAGE").toString()
         minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
         targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
         versionName = project.property("VERSION_NAME").toString()

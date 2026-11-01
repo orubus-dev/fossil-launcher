@@ -61,6 +61,7 @@ import org.fossify.commons.helpers.DARK_GREY
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isOreoMr1Plus
 import org.fossify.commons.helpers.isQPlus
+import org.fossify.commons.helpers.isSPlus
 import org.fossify.home.BuildConfig
 import org.fossify.home.R
 import org.fossify.home.databinding.ActivityMainBinding
@@ -132,6 +133,7 @@ class MainActivity : SimpleActivity(), FlingListener {
         private const val ANIMATION_DURATION = 150L
         private const val APP_DRAWER_CLOSE_DELAY = 300L
         private const val APP_DRAWER_STATE = "app_drawer_state"
+        private const val GLASS_BLUR_RADIUS = 90
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -638,6 +640,7 @@ class MainActivity : SimpleActivity(), FlingListener {
             start()
         }
 
+        applyGlassBlur(enabled = true)
         window.navigationBarColor = resources.getColor(R.color.semitransparent_navigation)
         binding.homeScreenGrid.root.fragmentExpanded()
         binding.homeScreenGrid.root.hideResizeLines()
@@ -670,6 +673,7 @@ class MainActivity : SimpleActivity(), FlingListener {
             start()
         }
 
+        applyGlassBlur(enabled = false)
         window.navigationBarColor = Color.TRANSPARENT
         binding.homeScreenGrid.root.fragmentCollapsed()
         updateStatusBarIcons()
@@ -685,6 +689,24 @@ class MainActivity : SimpleActivity(), FlingListener {
                 fragment.root.touchDownY = -1
             }
         }, animationDuration)
+    }
+
+    /**
+     * Fossil liquid glass: when a fragment (app drawer / widgets) slides over the
+     * wallpaper, blur what's behind the window so the glass sheet has something
+     * real to refract. Gracefully no-ops where cross-window blur is unavailable.
+     */
+    private fun applyGlassBlur(enabled: Boolean) {
+        if (!isSPlus()) {
+            return
+        }
+        try {
+            if (!window.isCrossWindowBlurEnabled) {
+                return
+            }
+            window.setBackgroundBlurRadius(if (enabled) GLASS_BLUR_RADIUS else 0)
+        } catch (_: Exception) {
+        }
     }
 
     fun homeScreenLongPressed(eventX: Float, eventY: Float) {

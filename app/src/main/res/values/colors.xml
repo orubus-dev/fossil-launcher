@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Fossil liquid glass palette (light mode values; overridden in values-night) -->
     <color name="semitransparent_navigation">#33000000</color>
+    <color name="glass_fill">#B8F2F2F7</color>
+    <color name="glass_stroke">#33000000</color>
 </resources>

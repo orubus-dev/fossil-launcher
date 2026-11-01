@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">लांचर</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">लॉन्चर सेटिंग्स</string>
     <string name="app_info">ऐप जानकारी</string>
     <string name="touch_hold_widget">विजेट को देर तक दबाकर रखें और इसे अपनी होम स्क्रीन पर खींचें</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Lainseálaí</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Socruithe Lainseálaí</string>
     <string name="app_info">Eolas aip</string>
     <string name="touch_hold_widget">Brúigh fada an ghiuirléid agus tarraing ar do scáileán baile é</string>

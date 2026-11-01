@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Aloitusnäyttö</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Aloitusnäytön asetukset</string>
     <string name="app_info">Sovelluksen tiedot</string>
     <string name="touch_hold_widget">Paina pienoisohjelmaa pitkään ja vedä se aloitusnäytöllesi</string>

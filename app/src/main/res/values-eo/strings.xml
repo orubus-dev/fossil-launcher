@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Lanĉilo</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Lanĉilaj agordoj</string>
     <string name="touch_hold_widget">Longe premu la fenestraĵon kaj treni ĝin sur vian hejmekranon</string>
     <string name="uninstall">Malinstali</string>

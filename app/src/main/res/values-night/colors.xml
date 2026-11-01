@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fossil liquid glass palette (dark mode) -->
+    <color name="glass_fill">#C6000000</color>
+    <color name="glass_stroke">#22FFFFFF</color>
+</resources>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_launcher_name">Trình khởi chạy</string>
+    <string name="app_launcher_name">Fossil</string>
     <string name="launcher_settings">Cài đặt trình khởi chạy</string>
     <string name="app_info">Thông tin ứng dụng</string>
     <string name="touch_hold_widget">Nhấn giữ tiện ích và kéo nó vào màn hình chính của bạn</string>
