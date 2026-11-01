@@ -25,6 +25,10 @@
     <string name="wallpaper_pick_from_gallery">Pick wallpaper from gallery</string>
     <string name="wallpaper_open_system_picker">Open system wallpaper picker</string>
     <string name="wallpaper_set_successfully">Wallpaper set successfully</string>
+    <string name="home_screen_layout">Home screen layout</string>
+    <string name="home_mode_classic">Home screen &amp; drawer</string>
+    <string name="home_mode_all_apps">All apps on home</string>
+    <string name="home_mode_drawer_only">Drawer only home</string>
     <!--
         Haven't found some strings? There's more at
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res

@@ -27,9 +27,11 @@ import org.fossify.home.glass.isNightMode
  * Fossil liquid glass dialogs.
  *
  * Every launcher popup — long-press menus, the wallpaper selector, rename
- * prompts — floats on the same frosted glass card: real background blur on
- * Android 12+, a translucent fill with a specular stroke, a bottom-anchored
- * slide-up entrance and press ripples that read as liquid highlights.
+ * prompts — floats on a [LiquidGlassPanel]: the launcher content behind the
+ * popup is captured, blurred and refracted through a rounded-rect lens with
+ * chromatic dispersion and a specular rim (GPU tier on Android 13+, an
+ * identical software render everywhere else). Rows slide up from the bottom
+ * edge like liquid rising, and presses ripple as liquid highlights.
  */
 abstract class GlassCardDialog(
     protected val activity: Activity,
@@ -37,14 +39,14 @@ abstract class GlassCardDialog(
 
     protected val darkTheme: Boolean by lazy { activity.isNightMode() }
 
-    /** Root card; assigned by [installCard] during content setup. */
-    private var cardView: LinearLayout? = null
+    private var glassPanel: LiquidGlassPanel? = null
+    private var innerCard: LinearLayout? = null
 
     val cornerRadius: Float
         get() = dp(28f).toFloat()
 
     val fillArgb: Int
-        get() = if (darkTheme) Color.argb(216, 24, 24, 27) else Color.argb(214, 252, 252, 255)
+        get() = if (darkTheme) Color.argb(70, 24, 24, 27) else Color.argb(84, 252, 252, 255)
 
     val strokeArgb: Int
         get() = if (darkTheme) Color.argb(34, 255, 255, 255) else Color.argb(46, 0, 0, 0)
@@ -58,6 +60,15 @@ abstract class GlassCardDialog(
     val dangerColor: Int
         get() = Color.rgb(235, 74, 78)
 
+    /** Window dim; the backdrop composite dims by the same amount. */
+    protected open val backdropDim: Float = 0.28f
+
+    /** Bottom-anchored sheets by default; centered dialogs override to CENTER. */
+    protected open val dialogGravity: Int = Gravity.BOTTOM
+
+    /** Horizontal inset of the glass panel from the window edge. */
+    protected open val sidePaddingDp: Float = 14f
+
     fun dp(value: Float): Int {
         return TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, value, activity.resources.displayMetrics
@@ -65,26 +76,44 @@ abstract class GlassCardDialog(
     }
 
     /**
-     * Builds the frosted card, fills it with [content] rows and installs it
+     * Builds the glass panel, fills it with [content] rows and installs it
      * as this dialog's view. Rows longer than ~65% of the screen scroll.
      */
     protected fun installCard(content: List<View>) {
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(fillArgb)
-                cornerRadius = this@GlassCardDialog.cornerRadius
-                setStroke(dp(1f), strokeArgb)
-            }
-            elevation = dp(14f).toFloat()
         }
         content.forEach { card.addView(it) }
-        cardView = card
+        innerCard = card
+
+        val style = LiquidGlassPanel.GlassStyle(
+            cornerRadiusPx = cornerRadius,
+            params = GlassRefraction.Params(
+                refraction = 15f,
+                dispersion = 0.35f,
+                edgeWidth = 26f,
+                specular = 0.9f,
+                tint = fillArgb,
+                alpha = 1f,
+            ),
+            blurRadius = 26f,
+            panelInset = dp(20f).toFloat(),
+            fallbackFill = if (darkTheme) Color.argb(216, 24, 24, 27) else Color.argb(214, 252, 252, 255),
+            stroke = strokeArgb,
+        )
+        val panel = LiquidGlassPanel(activity, style)
+        panel.contentLayout.addView(
+            card,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        glassPanel = panel
 
         val maxCardHeight = (activity.resources.displayMetrics.heightPixels * 0.68f).toInt()
         card.measure(
             View.MeasureSpec.makeMeasureSpec(
-                activity.resources.displayMetrics.widthPixels - dp(28f),
+                activity.resources.displayMetrics.widthPixels - dp(sidePaddingDp * 2),
                 View.MeasureSpec.AT_MOST
             ),
             View.MeasureSpec.makeMeasureSpec(maxCardHeight, View.MeasureSpec.AT_MOST)
@@ -92,7 +121,9 @@ abstract class GlassCardDialog(
         val needsScroll = card.measuredHeight > maxCardHeight
 
         val root = FrameLayout(activity).apply {
-            setPadding(dp(14f), 0, dp(14f), dp(14f))
+            setPadding(dp(sidePaddingDp), 0, dp(sidePaddingDp), dp(14f))
+            clipChildren = false
+            clipToPadding = false
         }
 
         if (needsScroll) {
@@ -103,36 +134,67 @@ abstract class GlassCardDialog(
             scroller.addView(card, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ))
-            root.addView(scroller, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
-            ))
-        } else {
-            root.addView(card, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
+            panel.contentLayout.removeAllViews()
+            panel.contentLayout.addView(scroller, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ))
         }
 
+        root.addView(panel, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            dialogGravity
+        ))
+
         setContentView(root)
-        setupWindow()
+        setupWindow(panel, card.measuredHeight)
     }
 
-    private fun setupWindow() {
+    private fun setupWindow(panel: LiquidGlassPanel, measuredCardHeight: Int) {
         window?.apply {
             setBackgroundDrawableResource(android.R.color.transparent)
-            setGravity(Gravity.BOTTOM)
+            setGravity(dialogGravity)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
-                    // real blur of the launcher + wallpaper behind the card
-                    setBackgroundBlurRadius(88)
+                    // cross-window blur where available — complements the panel
+                    setBackgroundBlurRadius(64)
                 } catch (_: Exception) {
                 }
             }
-            setDimAmount(0.34f)
-            setWindowAnimations(R.style.GlassDialogWindowAnimation)
+            setDimAmount(backdropDim)
+            setWindowAnimations(0)
         }
+
+        // capture the launcher content BEFORE the dialog covers it
+        GlassBackdrop.captureContent(activity)
+
+        // approximate the panel's screen rect for the backdrop request
+        val metrics = activity.resources.displayMetrics
+        val padX = dp(sidePaddingDp)
+        val cardHeight = measuredCardHeight.takeIf { it > 0 } ?: dp(220)
+        val screenRect: android.graphics.RectF = when (dialogGravity) {
+            Gravity.CENTER -> {
+                val centerX = metrics.widthPixels / 2f
+                val centerY = metrics.heightPixels / 2f
+                android.graphics.RectF(
+                    centerX - (metrics.widthPixels / 2f - padX),
+                    centerY - cardHeight / 2f,
+                    centerX + (metrics.widthPixels / 2f - padX),
+                    centerY + cardHeight / 2f
+                )
+            }
+
+            else -> {
+                val padBottom = dp(14f)
+                android.graphics.RectF(
+                    padX.toFloat(),
+                    (metrics.heightPixels - padBottom - cardHeight).toFloat(),
+                    (metrics.widthPixels - padX).toFloat(),
+                    (metrics.heightPixels - padBottom).toFloat()
+                )
+            }
+        }
+        panel.loadBackdrop(activity, screenRect, backdropDim)
     }
 
     protected fun rowRipple(): Drawable {
@@ -232,16 +294,20 @@ abstract class GlassCardDialog(
         animateIn()
     }
 
-    /** Slide the card up from the bottom edge, like liquid rising. */
+    /** Slide the panel up from the bottom edge, like liquid rising. */
     protected open fun animateIn() {
-        val card = cardView ?: return
-        card.translationY = dp(64f).toFloat()
-        card.alpha = 0f
-        card.animate()
+        val panel = glassPanel ?: return
+        panel.translationY = dp(72f).toFloat()
+        panel.alpha = 0f
+        panel.scaleX = 0.97f
+        panel.scaleY = 0.97f
+        panel.animate()
             .translationY(0f)
             .alpha(1f)
-            .setDuration(260L)
-            .setInterpolator(DecelerateInterpolator(1.6f))
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(300L)
+            .setInterpolator(DecelerateInterpolator(1.8f))
             .start()
     }
 
@@ -257,16 +323,19 @@ abstract class GlassCardDialog(
         } catch (_: Exception) {
         }
 
-        val card = cardView
-        if (card == null) {
+        val panel = glassPanel
+        if (panel == null) {
             super.dismiss()
         } else {
-            card.animate()
+            panel.animate()
                 .translationY(dp(48f).toFloat())
                 .alpha(0f)
-                .setDuration(150L)
+                .setDuration(160L)
                 .setInterpolator(AccelerateInterpolator(1.4f))
-                .withEndAction { super.dismiss() }
+                .withEndAction {
+                    GlassBackdrop.invalidateContent()
+                    super.dismiss()
+                }
                 .start()
         }
     }

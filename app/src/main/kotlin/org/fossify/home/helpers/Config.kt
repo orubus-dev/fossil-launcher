@@ -49,4 +49,12 @@ class Config(context: Context) : BaseConfig(context) {
     var drawerGlassIcons: Boolean
         get() = prefs.getBoolean(DRAWER_GLASS_ICONS, true)
         set(drawerGlassIcons) = prefs.edit().putBoolean(DRAWER_GLASS_ICONS, drawerGlassIcons).apply()
+
+    /**
+     * Home screen layout: classic grid + drawer, all-apps-as-home, or a
+     * minimal home that keeps widgets and the dock but hides app icons.
+     */
+    var homeScreenMode: Int
+        get() = prefs.getInt(HOME_SCREEN_MODE, HOME_MODE_CLASSIC)
+        set(homeScreenMode) = prefs.edit().putInt(HOME_SCREEN_MODE, homeScreenMode).apply()
 }

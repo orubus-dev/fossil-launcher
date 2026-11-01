@@ -16,6 +16,12 @@ const val AUTO_SHOW_KEYBOARD_IN_APP_DRAWER = "auto_show_keyboard_in_app_drawer"
 const val SHOW_DRAWER_APP_LABELS = "show_drawer_app_labels"
 const val SHOW_HOME_APP_LABELS = "show_home_app_labels"
 const val DRAWER_GLASS_ICONS = "drawer_glass_icons"
+const val HOME_SCREEN_MODE = "home_screen_mode"
+
+// home screen layout modes
+const val HOME_MODE_CLASSIC = 0          // home grid + app drawer on swipe up
+const val HOME_MODE_ALL_APPS_ON_HOME = 1 // the drawer is the home screen
+const val HOME_MODE_DRAWER_ONLY = 2      // minimal home (widgets/dock only), everything in the drawer
 
 // default home screen grid size
 const val ROW_COUNT = 6

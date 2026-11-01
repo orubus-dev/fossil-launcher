@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 object GlassWallpapers {
 
     private const val SNAPSHOT_MAX_DIM = 640
-    private const val BLUR_INTERMEDIATE_DIM = 72
-    private const val BOX_BLUR_PASSES = 2
+    private const val BLUR_INTERMEDIATE_DIM = 88
+    private const val BOX_BLUR_PASSES = 3
 
     private val loading = AtomicBoolean(false)
     private val lock = Any()
@@ -40,12 +40,22 @@ object GlassWallpapers {
     @Volatile
     private var loadLatch: CountDownLatch? = null
 
+    private val versionCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /**
+     * Monotonic wallpaper generation: bumps whenever the cached wallpaper is
+     * (re)captured or invalidated. Backdrop caches key on it so a wallpaper
+     * change drops every downstream glass cache at once.
+     */
+    fun version(): Int = versionCounter.get()
+
     /** Drop every cached sample; the next read re-captures the wallpaper. */
     fun invalidate() {
         synchronized(lock) {
             snapshot = null
             backdrop = null
             loadLatch = null
+            versionCounter.incrementAndGet()
         }
     }
 
@@ -117,6 +127,7 @@ object GlassWallpapers {
                     synchronized(lock) {
                         snapshot = scaled
                         backdrop = null
+                        versionCounter.incrementAndGet()
                     }
                 }
             } catch (_: Exception) {
@@ -180,7 +191,7 @@ object GlassWallpapers {
 
         var result = upscaled
         repeat(BOX_BLUR_PASSES) {
-            val next = boxBlur(result, radius = 4)
+            val next = boxBlur(result, radius = 5)
             if (next != result) {
                 result.recycle()
                 result = next

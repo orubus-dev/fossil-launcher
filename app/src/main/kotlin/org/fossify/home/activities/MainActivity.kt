@@ -80,6 +80,7 @@ import org.fossify.home.extensions.launchApp
 import org.fossify.home.extensions.launchAppInfo
 import org.fossify.home.extensions.launchersDB
 import org.fossify.home.extensions.roleManager
+import org.fossify.home.extensions.setupDrawerBackground
 import org.fossify.home.extensions.showGridItemGlassMenu
 import org.fossify.home.extensions.supportsDarkText
 import org.fossify.home.extensions.uninstallApp
@@ -91,6 +92,8 @@ import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_SHORTCUT
 import org.fossify.home.helpers.ITEM_TYPE_WIDGET
+import org.fossify.home.helpers.HOME_MODE_ALL_APPS_ON_HOME
+import org.fossify.home.helpers.HOME_MODE_DRAWER_ONLY
 import org.fossify.home.helpers.IconCache
 import org.fossify.home.helpers.REQUEST_ALLOW_BINDING_WIDGET
 import org.fossify.home.helpers.REQUEST_CONFIGURE_WIDGET
@@ -206,6 +209,7 @@ class MainActivity : SimpleActivity(), FlingListener {
             wallpaperColorChangeListener = OnColorsChangedListener { colors, which ->
                 if (which and WallpaperManager.FLAG_SYSTEM != 0) {
                     GlassWallpapers.invalidate()
+                    refreshGlassSkins()
                     wallpaperSupportsDarkText = colors?.supportsDarkText() ?: run {
                         refreshWallpaperSupportsDarkText()
                         wallpaperSupportsDarkText
@@ -312,7 +316,27 @@ class MainActivity : SimpleActivity(), FlingListener {
             newColumnCount = config.homeColumnCount
         )
         binding.homeScreenGrid.root.updateColors()
+        binding.homeScreenGrid.root.showHomeIcons = config.homeScreenMode != HOME_MODE_DRAWER_ONLY
         binding.allAppsFragment.root.onResume()
+        applyHomeScreenMode()
+    }
+
+    /**
+     * Home screen layout modes. In ALL_APPS_ON_HOME the drawer is the home
+     * screen: it opens automatically whenever the launcher surfaces and the
+     * user is not already in it. In DRAWER_ONLY the home keeps widgets and
+     * the dock but no icons (handled by the grid flag). CLASSIC needs nothing.
+     */
+    private fun applyHomeScreenMode() {
+        if (config.homeScreenMode == HOME_MODE_ALL_APPS_ON_HOME &&
+            !isAllAppsFragmentExpanded() && !isWidgetsFragmentExpanded()
+        ) {
+            binding.allAppsFragment.root.post {
+                if (!isAllAppsFragmentExpanded() && !isWidgetsFragmentExpanded() && !isFinishing) {
+                    showFragment(binding.allAppsFragment)
+                }
+            }
+        }
     }
 
     override fun onStop() {
@@ -623,10 +647,12 @@ class MainActivity : SimpleActivity(), FlingListener {
         binding.allAppsFragment.root.gotLaunchers(launchers)
         binding.widgetsFragment.root.getAppWidgets()
 
+        val livePackages = launchers.map { it.packageName }
         IconCache.launchers.map { it.packageName }.forEach { packageName ->
-            if (!launchers.map { it.packageName }.contains(packageName)) {
+            if (!livePackages.contains(packageName)) {
                 launchersDB.deleteApp(packageName)
                 homeScreenGridItemsDB.deleteByPackageName(packageName)
+                IconCache.removeDrawable(packageName)
             }
         }
 
@@ -1071,6 +1097,7 @@ class MainActivity : SimpleActivity(), FlingListener {
                 bitmap.recycle()
                 GlassWallpapers.invalidate()
                 runOnUiThread {
+                    refreshGlassSkins()
                     toast(R.string.wallpaper_set_successfully)
                 }
             } catch (e: Exception) {
@@ -1078,6 +1105,18 @@ class MainActivity : SimpleActivity(), FlingListener {
                     showErrorToast(e)
                 }
             }
+        }
+    }
+
+    /**
+     * Re-apply the liquid glass skins after a wallpaper change so the drawer
+     * and widgets sheets pick up the new blurred wallpaper sample.
+     */
+    fun refreshGlassSkins() {
+        try {
+            binding.allAppsFragment.root.setupDrawerBackground()
+            binding.widgetsFragment.root.setupDrawerBackground()
+        } catch (_: Exception) {
         }
     }
 

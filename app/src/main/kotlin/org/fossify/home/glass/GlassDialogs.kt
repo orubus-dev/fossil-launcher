@@ -2,7 +2,10 @@ package org.fossify.home.glass
 
 import android.app.Activity
 import android.app.Dialog
+import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
 import android.view.View
 import org.fossify.home.R
 
@@ -45,6 +48,162 @@ class GlassMenuDialog(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT, dp(10f)
             )
         }
+    }
+
+    override fun onDismissed() {
+        onDismiss?.invoke()
+    }
+}
+
+/**
+ * Fossil liquid glass rename/input dialog: a centered glass card with a
+ * translucent text field, replacing the framework AlertDialog rename prompt.
+ */
+class GlassInputDialog(
+    activity: Activity,
+    title: String,
+    initialText: String,
+    private val onDismiss: (() -> Unit)? = null,
+    private val onConfirm: (String) -> Unit,
+) : GlassCardDialog(activity) {
+
+    private lateinit var input: android.widget.EditText
+
+    override val dialogGravity: Int = Gravity.CENTER
+    override val sidePaddingDp: Float = 28f
+
+    init {
+        val rows = mutableListOf<View>()
+        rows.add(buildTitle(title))
+
+        input = android.widget.EditText(activity).apply {
+            setText(initialText)
+            setTextColor(textPrimary)
+            setHintTextColor(textSecondary)
+            textSize = 16f
+            setSingleLine(true)
+            val pad = dp(14f)
+            setPadding(pad, pad, pad, pad)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14f).toFloat()
+                setColor(
+                    if (darkTheme) Color.argb(46, 255, 255, 255)
+                    else Color.argb(28, 0, 0, 0)
+                )
+                setStroke(dp(1f), strokeArgb)
+            }
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(dp(16f), dp(8f), dp(16f), dp(4f)) }
+        }
+        rows.add(input)
+
+        rows.add(buildDivider())
+        rows.add(
+            buildRow(activity.getString(org.fossify.commons.R.string.cancel), null, false) {
+                onDismiss?.invoke()
+            }
+        )
+        rows.add(
+            buildRow(activity.getString(org.fossify.commons.R.string.ok), null, false) {
+                onConfirm(input.text?.toString()?.trim().orEmpty())
+            }
+        )
+        rows.add(buildSpacer())
+        installCard(rows)
+
+        input.post {
+            input.requestFocus()
+            try {
+                activity.showKeyboard(input)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    override fun onDismissed() {
+        onDismiss?.invoke()
+    }
+}
+
+/**
+ * Fossil liquid glass single-choice dialog: replaces the commons
+ * RadioGroupDialog so the settings pickers live on the same glass system as
+ * every other popup.
+ */
+class GlassRadioDialog(
+    activity: Activity,
+    title: String,
+    items: List<org.fossify.commons.models.RadioItem>,
+    checkedId: Int,
+    private val onDismiss: (() -> Unit)? = null,
+    private val onSelect: (Any) -> Unit,
+) : GlassCardDialog(activity) {
+
+    override val dialogGravity: Int = Gravity.CENTER
+    override val sidePaddingDp: Float = 28f
+
+    private val selected = java.util.concurrent.atomic.AtomicInteger(checkedId)
+
+    init {
+        val rows = mutableListOf<View>()
+        rows.add(buildTitle(title))
+
+        items.forEach { item ->
+            val isSelected = item.id == checkedId
+            val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(18f), 0, dp(18f), 0)
+                background = rowRipple()
+                minimumHeight = dp(50f)
+                isClickable = true
+                isFocusable = true
+            }
+
+            val radio = android.widget.RadioButton(activity).apply {
+                isChecked = isSelected
+                isClickable = false
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+            row.addView(radio)
+
+            val label = org.fossify.commons.views.MyTextView(activity).apply {
+                text = item.title
+                setTextColor(textPrimary)
+                textSize = 16f
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                ).apply {
+                    marginStart = dp(14f)
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+            }
+            row.addView(label)
+
+            row.setOnClickListener {
+                selected.set(item.id)
+                radio.isChecked = true
+                postDelayed({
+                    dismiss()
+                    onSelect(item.value)
+                }, 90L)
+            }
+            rows.add(row)
+        }
+
+        rows.add(buildDivider())
+        rows.add(
+            buildRow(activity.getString(org.fossify.commons.R.string.cancel), null, false) {
+                onDismiss?.invoke()
+            }
+        )
+        rows.add(buildSpacer())
+        installCard(rows)
     }
 
     override fun onDismissed() {

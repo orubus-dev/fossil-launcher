@@ -5,7 +5,6 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
-import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.launchMoreAppsFromUsIntent
@@ -21,11 +20,16 @@ import org.fossify.home.BuildConfig
 import org.fossify.home.R
 import org.fossify.home.databinding.ActivitySettingsBinding
 import org.fossify.home.extensions.config
+import org.fossify.home.glass.GlassRadioDialog
 import org.fossify.home.glass.GlassWallpapers
+import org.fossify.home.glass.isNightMode
 import org.fossify.home.helpers.MAX_COLUMN_COUNT
 import org.fossify.home.helpers.MAX_ROW_COUNT
 import org.fossify.home.helpers.MIN_COLUMN_COUNT
 import org.fossify.home.helpers.MIN_ROW_COUNT
+import org.fossify.home.helpers.HOME_MODE_ALL_APPS_ON_HOME
+import org.fossify.home.helpers.HOME_MODE_CLASSIC
+import org.fossify.home.helpers.HOME_MODE_DRAWER_ONLY
 import org.fossify.home.receivers.LockDeviceAdminReceiver
 import java.util.Locale
 import kotlin.system.exitProcess
@@ -62,11 +66,15 @@ class SettingsActivity : SimpleActivity() {
     /**
      * Fossil glass skin: the settings page is laid over an actual blurred-out
      * sample of the current wallpaper, so even devices without cross-window
-     * blur get the full frosted look. The glass card floats above it.
+     * blur get the full frosted look. The scrim adapts to day/night so the
+     * glass card keeps its contrast on both light and dark wallpapers.
      */
     private fun applyGlassSkin() {
         binding.settingsAppbar.background = null
         binding.settingsToolbar.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        binding.settingsWallpaperScrim.setBackgroundColor(
+            if (isNightMode()) 0x59000000.toInt() else 0x38FFFFFF
+        )
         ensureBackgroundThread {
             val snapshot = GlassWallpapers.getSnapshot(applicationContext) ?: return@ensureBackgroundThread
             val blurred = GlassWallpapers.blurSample(
@@ -98,6 +106,7 @@ class SettingsActivity : SimpleActivity() {
         setupShowDrawerAppLabels()
         setupHomeRowCount()
         setupHomeColumnCount()
+        setupHomeScreenMode()
         setupShowHomeAppLabels()
         setupLanguage()
         setupManageHiddenIcons()
@@ -221,8 +230,13 @@ class SettingsActivity : SimpleActivity() {
                 )
             }
 
-            RadioGroupDialog(this, items, currentColumnCount) {
-                val newColumnCount = it as Int
+            GlassRadioDialog(
+                activity = this,
+                title = getString(R.string.column_count),
+                items = items,
+                checkedId = currentColumnCount
+            ) { picked ->
+                val newColumnCount = picked as Int
                 if (currentColumnCount != newColumnCount) {
                     config.drawerColumnCount = newColumnCount
                     setupDrawerColumnCount()
@@ -265,8 +279,13 @@ class SettingsActivity : SimpleActivity() {
                 )
             }
 
-            RadioGroupDialog(this, items, currentRowCount) {
-                val newRowCount = it as Int
+            GlassRadioDialog(
+                activity = this,
+                title = getString(R.string.row_count),
+                items = items,
+                checkedId = currentRowCount
+            ) { picked ->
+                val newRowCount = picked as Int
                 if (currentRowCount != newRowCount) {
                     config.homeRowCount = newRowCount
                     setupHomeRowCount()
@@ -291,8 +310,13 @@ class SettingsActivity : SimpleActivity() {
                 )
             }
 
-            RadioGroupDialog(this, items, currentColumnCount) {
-                val newColumnCount = it as Int
+            GlassRadioDialog(
+                activity = this,
+                title = getString(R.string.column_count),
+                items = items,
+                checkedId = currentColumnCount
+            ) { picked ->
+                val newColumnCount = picked as Int
                 if (currentColumnCount != newColumnCount) {
                     config.homeColumnCount = newColumnCount
                     setupHomeColumnCount()
@@ -306,6 +330,38 @@ class SettingsActivity : SimpleActivity() {
         binding.settingsShowHomeAppLabelsHolder.setOnClickListener {
             binding.settingsShowHomeAppLabels.toggle()
             config.showHomeAppLabels = binding.settingsShowHomeAppLabels.isChecked
+        }
+    }
+
+    /** Home screen layout: classic / all-apps-as-home / drawer-only home. */
+    private fun setupHomeScreenMode() {
+        val currentMode = config.homeScreenMode
+        binding.settingsHomeScreenMode.text = getString(
+            when (currentMode) {
+                HOME_MODE_ALL_APPS_ON_HOME -> R.string.home_mode_all_apps
+                HOME_MODE_DRAWER_ONLY -> R.string.home_mode_drawer_only
+                else -> R.string.home_mode_classic
+            }
+        )
+        binding.settingsHomeScreenModeHolder.setOnClickListener {
+            val items = ArrayList<RadioItem>().apply {
+                add(RadioItem(HOME_MODE_CLASSIC, getString(R.string.home_mode_classic)))
+                add(RadioItem(HOME_MODE_ALL_APPS_ON_HOME, getString(R.string.home_mode_all_apps)))
+                add(RadioItem(HOME_MODE_DRAWER_ONLY, getString(R.string.home_mode_drawer_only)))
+            }
+
+            GlassRadioDialog(
+                activity = this,
+                title = getString(R.string.home_screen_layout),
+                items = items,
+                checkedId = currentMode
+            ) { picked ->
+                val newMode = picked as Int
+                if (currentMode != newMode) {
+                    config.homeScreenMode = newMode
+                    setupHomeScreenMode()
+                }
+            }
         }
     }
 

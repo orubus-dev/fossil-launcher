@@ -39,7 +39,15 @@ val Context.hiddenIconsDB: HiddenIconsDao
 val Context.roleManager: RoleManager
     get() = getSystemService(RoleManager::class.java)
 
+/**
+ * Resolve an app's launcher icon, served from the process-wide icon cache
+ * when possible so home grid refreshes and drawer rebinds pay zero
+ * LauncherApps round-trips. Cache entries are fresh drawables (constant
+ * state clones), safe to mutate and share across views.
+ */
 fun Context.getDrawableForPackageName(packageName: String): Drawable? {
+    org.fossify.home.helpers.IconCache.getDrawable(packageName)?.let { return it }
+
     var drawable: Drawable? = null
     try {
         // try getting the properly colored launcher icons
@@ -58,6 +66,9 @@ fun Context.getDrawableForPackageName(packageName: String): Drawable? {
         }
     }
 
+    if (drawable != null) {
+        org.fossify.home.helpers.IconCache.putDrawable(packageName, drawable)
+    }
     return drawable
 }
 

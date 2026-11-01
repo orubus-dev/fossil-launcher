@@ -59,7 +59,10 @@ import org.fossify.home.databinding.HomeScreenGridBinding
 import org.fossify.home.extensions.config
 import org.fossify.home.extensions.getDrawableForPackageName
 import org.fossify.home.extensions.homeScreenGridItemsDB
+import org.fossify.home.glass.GlassBackdrop
+import org.fossify.home.glass.GlassRefraction
 import org.fossify.home.glass.GlassWallpapers
+import org.fossify.home.glass.isNightMode
 import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_SHORTCUT
@@ -130,6 +133,27 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
     private var currentlyOpenFolder: HomeScreenFolder? = null
     private var draggingLeftFolderAt: Long? = null
     private var draggingEnteredNewFolderAt: Long? = null
+
+    // Liquid folders: the panel itself is a pre-rendered liquid glass surface
+    // (software refraction tier — identical optics to the dialog panels).
+    private var folderGlass: Bitmap? = null
+    private var folderGlassKey: Long = 0L
+    @Volatile
+    private var folderGlassJob: Thread? = null
+
+    /**
+     * Home screen layout modes: when false (drawer-only home), the grid keeps
+     * widgets and the dock but stops drawing app icons and folders.
+     */
+    var showHomeIcons: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                redrawGrid()
+            } else {
+                field = value
+            }
+        }
 
     // apply fake margins at the home screen. Real ones would cause the icons be cut at dragging at screen sides
     var sideMargins = Rect()
@@ -1239,6 +1263,11 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         val lastXFactor = pager.getXFactorForLastPage()
 
         fun handleMainGridItemDrawing(item: HomeScreenGridItem, xFactor: Float) {
+            if (!showHomeIcons && !item.docked && item.type != ITEM_TYPE_WIDGET) {
+                // drawer-only home mode: wallpaper + widgets + dock stay, app
+                // icons and folders hide from the grid
+                return
+            }
             val offsetX = sideMargins.left + (this@HomeScreenGrid.width * xFactor).toInt()
             val offsetY = sideMargins.top
             cells[item.getTopLeft(rowCount)]!!.withOffset(offsetX, offsetY) {
@@ -1363,6 +1392,8 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         if (folder != null && folder.getItems().isNotEmpty()) {
             val items = folder.getItems()
             val folderRect = folder.getDrawingRect()
+            // the glass render keyed on the un-offset rect; keep it for lookup
+            val folderBaseRect = RectF(folderRect)
 
             val currentViewPosition =
                 pager.getCurrentViewPositionInFullPageSpace() * width.toFloat()
@@ -1377,33 +1408,53 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
             ) {
                 val radius = roundedCornerRadius / folder.scale
 
-                // Liquid glass: real blurred wallpaper refracts through the
-                // panel, with a translucent fill and specular stroke on top.
+                // Liquid folders: the panel is a real refracted glass surface.
+                // When the off-thread render has landed we draw it 1:1 (it
+                // self-masks its rounded shape); until then the fallback
+                // blurred-wallpaper composite covers the panel.
+                val glass = synchronized(this@HomeScreenGrid) {
+                    folderGlass?.takeIf { !it.isRecycled && folderGlassKey == folderGlassKey(folderBaseRect) }
+                }
                 val save = canvas.saveLayer(folderRect, null)
-                val clipPath = Path().apply {
-                    addRoundRect(folderRect, radius, radius, Path.Direction.CW)
-                }
-                canvas.clipPath(clipPath)
-
-                val backdrop = GlassWallpapers.getBackdrop(context)
-                if (backdrop != null) {
-                    val backdropPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-                    // slight offset makes the backdrop read as refraction, not a screenshot
-                    val offsetX = folderRect.left * 0.12f
-                    val offsetY = folderRect.top * 0.12f
+                if (glass != null) {
+                    val bleed = FOLDER_GLASS_INSET
+                    val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
                     canvas.drawBitmap(
-                        backdrop, null,
+                        glass, null,
                         RectF(
-                            folderRect.left - offsetX,
-                            folderRect.top - offsetY,
-                            folderRect.right + offsetX,
-                            folderRect.bottom + offsetY
+                            folderRect.left - bleed,
+                            folderRect.top - bleed,
+                            folderRect.right + bleed,
+                            folderRect.bottom + bleed
                         ),
-                        backdropPaint
+                        glassPaint
                     )
-                }
+                } else {
+                    val clipPath = Path().apply {
+                        addRoundRect(folderRect, radius, radius, Path.Direction.CW)
+                    }
+                    canvas.clipPath(clipPath)
 
-                canvas.drawRoundRect(folderRect, radius, radius, folderBackgroundPaint)
+                    val backdrop = GlassWallpapers.getBackdrop(context)
+                    if (backdrop != null) {
+                        val backdropPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                        // slight offset makes the backdrop read as refraction, not a screenshot
+                        val offsetX = folderRect.left * 0.12f
+                        val offsetY = folderRect.top * 0.12f
+                        canvas.drawBitmap(
+                            backdrop, null,
+                            RectF(
+                                folderRect.left - offsetX,
+                                folderRect.top - offsetY,
+                                folderRect.right + offsetX,
+                                folderRect.bottom + offsetY
+                            ),
+                            backdropPaint
+                        )
+                    }
+
+                    canvas.drawRoundRect(folderRect, radius, radius, folderBackgroundPaint)
+                }
                 canvas.drawRoundRect(folderRect, radius, radius, folderStrokePaint)
 
                 val textX = folderRect.left + folderPadding
@@ -1883,11 +1934,93 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
         if (currentlyOpenFolder == null) {
             currentlyOpenFolder = folder.toFolder(animateOpening = true)
+            requestFolderGlass()
             redrawGrid()
         } else if (currentlyOpenFolder?.item?.id != folder.id) {
             closeFolder()
         }
         accessibilityHelper.invalidateRoot()
+    }
+
+    /**
+     * Render the folder panel's liquid glass off the UI thread: capture the
+     * launcher content, compose the backdrop for the panel rect (plus bleed)
+     * and refract it through the lens. The panel draws its fallback glass
+     * until the refracted result arrives, then crossfades via redraw.
+     */
+    private fun requestFolderGlass() {
+        val activity = context as? android.app.Activity ?: return
+        GlassBackdrop.captureContent(activity)
+        folderGlassJob?.interrupt()
+        folderGlassJob = Thread {
+            try {
+                val folder = currentlyOpenFolder ?: return@Thread
+                val rect = folder.getDrawingRect()
+                val inset = FOLDER_GLASS_INSET
+                val bleed = android.graphics.RectF(
+                    rect.left - inset,
+                    rect.top - inset,
+                    rect.right + inset,
+                    rect.bottom + inset
+                )
+                val width = bleed.width().toInt().coerceAtLeast(3)
+                val height = bleed.height().toInt().coerceAtLeast(3)
+                val backdrop = GlassBackdrop.getBlocking(
+                    activity, bleed, width, height, FOLDER_GLASS_DIM
+                ) ?: return@Thread
+                if (Thread.currentThread().isInterrupted) {
+                    return@Thread
+                }
+                val refracted = GlassRefraction.render(
+                    backdrop,
+                    roundedCornerRadius,
+                    GlassRefraction.Params(
+                        refraction = 15f,
+                        dispersion = 0.35f,
+                        edgeWidth = 26f,
+                        specular = 0.9f,
+                        tint = folderGlassTint(),
+                        alpha = 1f,
+                        panelInset = inset,
+                        blur = 26f
+                    )
+                ) ?: return@Thread
+                synchronized(this@HomeScreenGrid) {
+                    folderGlass?.recycle()
+                    folderGlass = refracted
+                    folderGlassKey = folderGlassKey(rect)
+                }
+                post { redrawGrid() }
+            } catch (_: Throwable) {
+            }
+        }.apply { start() }
+    }
+
+    private fun folderGlassKey(rect: RectF): Long {
+        var hash = rect.left.toRawBits().toLong()
+        hash = hash * 31 + rect.top.toRawBits()
+        hash = hash * 31 + rect.width().toRawBits()
+        hash = hash * 31 + rect.height().toRawBits()
+        hash = hash * 31 + GlassWallpapers.version()
+        return hash
+    }
+
+    private fun folderGlassTint(): Int {
+        return if (context.isNightMode()) {
+            android.graphics.Color.argb(70, 24, 24, 27)
+        } else {
+            android.graphics.Color.argb(84, 252, 252, 255)
+        }
+    }
+
+    private fun releaseFolderGlass() {
+        folderGlassJob?.interrupt()
+        folderGlassJob = null
+        synchronized(this@HomeScreenGrid) {
+            folderGlass?.recycle()
+            folderGlass = null
+            folderGlassKey = 0L
+        }
     }
 
     fun closeFolder(redraw: Boolean = false, instant: Boolean = false) {
@@ -1896,6 +2029,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
         if (instant) {
             currentlyOpenFolder = null
+            releaseFolderGlass()
             if (redraw) {
                 redrawGrid()
             }
@@ -1904,6 +2038,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
         currentlyOpenFolder?.animateClosing {
             currentlyOpenFolder = null
+            releaseFolderGlass()
             if (redraw) {
                 redrawGrid()
             }
@@ -1930,6 +2065,7 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         }
         folder.animateFullscreenLaunch { fullRect ->
             currentlyOpenFolder = null
+            releaseFolderGlass()
             redrawGrid()
             accessibilityHelper.invalidateRoot()
             onLaunch(fullRect.toRect())
@@ -2371,6 +2507,8 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         private const val FOLDER_ANIMATION_DURATION = 200L
         private const val FOLDER_LAUNCH_ANIMATION_DURATION = 320L
         private const val FOLDER_ITEM_STAGGER = 0.06f
+        private const val FOLDER_GLASS_INSET = 20f
+        private const val FOLDER_GLASS_DIM = 0.16f
     }
 }
 
