@@ -59,7 +59,7 @@ jobs:
           fi
           cp "$APK" Fossil-release.apk
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: Fossil-release-apk
           path: Fossil-release.apk
