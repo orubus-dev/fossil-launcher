@@ -2022,8 +2022,8 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         val pivotY = cell.exactCenterY()
 
         val saveCount = saveLayerAlpha(
-            cell.left - iconSize, cell.top - iconSize,
-            cell.right + iconSize, cell.bottom + iconSize, alpha
+            (cell.left - iconSize).toFloat(), (cell.top - iconSize).toFloat(),
+            (cell.right + iconSize).toFloat(), (cell.bottom + iconSize).toFloat(), alpha
         )
         withScale(x = itemScale, y = itemScale, pivotX = pivotX, pivotY = pivotY) {
             val drawable = item.drawable?.constantState?.newDrawable()?.mutate()

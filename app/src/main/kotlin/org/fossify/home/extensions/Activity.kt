@@ -216,7 +216,7 @@ fun Activity.showGridItemGlassMenu(
             }
             items.add(
                 GlassMenuDialog.Item(
-                    title = shortcutInfo.label?.toString() ?: "",
+                    title = shortcutInfo.getLabel(),
                     icon = (iconDrawable ?: Color.TRANSPARENT.toDrawable())
                         .toBitmap(width = iconSize, height = iconSize)
                         .toDrawable(resources),

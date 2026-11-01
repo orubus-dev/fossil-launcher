@@ -1,7 +1,9 @@
 package org.fossify.home.glass
 
 import android.app.Activity
+import android.app.Dialog
 import android.graphics.drawable.Drawable
+import android.view.View
 import org.fossify.home.R
 
 /**

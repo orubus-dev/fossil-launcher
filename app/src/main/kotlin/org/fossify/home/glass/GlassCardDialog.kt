@@ -19,9 +19,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.core.content.ContextCompat
-import org.fossify.commons.extensions.isDarkMode
 import org.fossify.commons.views.MyTextView
 import org.fossify.home.R
+import org.fossify.home.glass.isNightMode
 
 /**
  * Fossil liquid glass dialogs.
@@ -35,13 +35,13 @@ abstract class GlassCardDialog(
     protected val activity: Activity,
 ) : Dialog(activity, R.style.GlassDialogTheme) {
 
-    protected val darkTheme: Boolean by lazy { activity.isDarkMode() }
+    protected val darkTheme: Boolean by lazy { activity.isNightMode() }
 
     /** Root card; assigned by [installCard] during content setup. */
     private var cardView: LinearLayout? = null
 
     val cornerRadius: Float
-        get() = dp(28f)
+        get() = dp(28f).toFloat()
 
     val fillArgb: Int
         get() = if (darkTheme) Color.argb(216, 24, 24, 27) else Color.argb(214, 252, 252, 255)
@@ -97,7 +97,7 @@ abstract class GlassCardDialog(
 
         if (needsScroll) {
             val scroller = ScrollView(activity).apply {
-                verticalScrollBarEnabled = false
+                isVerticalScrollBarEnabled = false
                 overScrollMode = View.OVER_SCROLL_NEVER
             }
             scroller.addView(card, FrameLayout.LayoutParams(
@@ -138,7 +138,7 @@ abstract class GlassCardDialog(
     protected fun rowRipple(): Drawable {
         val content = GradientDrawable().apply {
             setColor(Color.TRANSPARENT)
-            cornerRadius = dp(18f)
+            cornerRadius = dp(18f).toFloat()
         }
         val rippleColor = if (darkTheme) {
             Color.argb(46, 255, 255, 255)
@@ -150,7 +150,7 @@ abstract class GlassCardDialog(
             content,
             GradientDrawable().apply {
                 setColor(Color.WHITE)
-                cornerRadius = dp(18f)
+                cornerRadius = dp(18f).toFloat()
             }
         )
     }

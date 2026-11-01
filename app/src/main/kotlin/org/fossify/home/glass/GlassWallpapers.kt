@@ -108,7 +108,7 @@ object GlassWallpapers {
                     null
                 }
 
-                val source = drawable.toBitmapSafely()
+                val source = drawable?.toBitmapSafely()
                 if (source != null && source.width > 0 && source.height > 0) {
                     val scaled = scaleToFit(source, SNAPSHOT_MAX_DIM)
                     if (scaled != source) {

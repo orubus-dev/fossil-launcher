@@ -15,17 +15,17 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.target.DrawableImageViewTarget
 import com.bumptech.glide.request.transition.Transition
 import com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
-import org.fossify.commons.extensions.beVisibleIf
-import org.fossify.commons.extensions.getColoredDrawableWithColor
-import org.fossify.commons.extensions.getProperTextColor
-import org.fossify.commons.extensions.isDarkMode
 import org.fossify.commons.extensions.realScreenSize
+import org.fossify.commons.extensions.getProperTextColor
+import org.fossify.commons.extensions.getColoredDrawableWithColor
+import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.home.R
 import org.fossify.home.activities.SimpleActivity
 import org.fossify.home.databinding.ItemLauncherLabelBinding
 import org.fossify.home.extensions.animateScale
 import org.fossify.home.extensions.config
 import org.fossify.home.glass.GlassIcons
+import org.fossify.home.glass.isNightMode
 import org.fossify.home.interfaces.AllAppsListener
 import org.fossify.home.models.AppLauncher
 
@@ -107,7 +107,7 @@ class LaunchersAdapter(
                         context = activity,
                         launcher = launcher,
                         sizePx = tileSize,
-                        darkTheme = activity.isDarkMode()
+                        darkTheme = activity.isNightMode()
                     ) { tile ->
                         if (tile != null) {
                             // holder may be recycled for another app by then
