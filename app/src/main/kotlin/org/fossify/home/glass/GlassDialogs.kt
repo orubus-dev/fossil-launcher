@@ -182,7 +182,7 @@ class GlassRadioDialog(
             row.setOnClickListener {
                 selected.set(item.id)
                 radio.isChecked = true
-                postDelayed({
+                row.postDelayed({
                     dismiss()
                     onSelect(item.value)
                 }, 90L)
