@@ -78,8 +78,12 @@ object GlassBackdrop {
             canvas.scale(scale, scale)
             decor.draw(canvas)
 
+            // v1.0.3 crash fix: never recycle the shared snapshot here. The
+            // compose thread may still be drawing it (compose reads this
+            // field without owning it), and recycling a bitmap that another
+            // thread is mid-draw throws "Canvas: trying to use a recycled
+            // bitmap". Dropping the reference lets the GC reclaim it safely.
             synchronized(lock) {
-                contentSnapshot?.recycle()
                 contentSnapshot = bitmap
                 windowWidth = width
                 windowHeight = height
@@ -93,7 +97,7 @@ object GlassBackdrop {
     /** Drop the captured launcher content (e.g. after a popup is dismissed). */
     fun invalidateContent() {
         synchronized(lock) {
-            contentSnapshot?.recycle()
+            // reference drop only — see captureContent for why not recycle
             contentSnapshot = null
         }
     }
@@ -101,9 +105,7 @@ object GlassBackdrop {
     /** Invalidate everything, including the composed result. */
     fun invalidateAll() {
         synchronized(lock) {
-            contentSnapshot?.recycle()
             contentSnapshot = null
-            composite?.recycle()
             composite = null
             compositeKey = 0L
             windowWidth = 0
@@ -137,7 +139,9 @@ object GlassBackdrop {
         executor.execute {
             val result = compose(appContext, screenRect, outWidth, outHeight, dimAmount)
             synchronized(lock) {
-                composite?.recycle()
+                // v1.0.3 crash fix: hand-out bitmaps are never recycled on
+                // swap — an earlier caller may still be drawing the old
+                // composite on the UI thread when the next request lands.
                 composite = result
                 compositeKey = if (result != null) key else 0L
             }
@@ -169,7 +173,6 @@ object GlassBackdrop {
         executor.execute {
             val bitmap = compose(appContext, screenRect, outWidth, outHeight, dimAmount)
             synchronized(lock) {
-                composite?.recycle()
                 composite = bitmap
                 compositeKey = if (bitmap != null) key else 0L
             }
@@ -241,6 +244,8 @@ object GlassBackdrop {
             canvas.drawBitmap(wallpaper, matrix, paint)
 
             // Layer 2: launcher content, captured at 1/3 window scale.
+            // isRecycled guard: content snapshots produced before the v1.0.3
+            // fix may already be recycled; drawing those threw fatal errors.
             if (content != null && !content.isRecycled) {
                 canvas.save()
                 canvas.scale(1f / CONTENT_CAPTURE_SCALE, 1f / CONTENT_CAPTURE_SCALE)

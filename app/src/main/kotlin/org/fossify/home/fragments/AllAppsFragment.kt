@@ -36,6 +36,12 @@ class AllAppsFragment(
 
     private var launchers = emptyList<AppLauncher>()
 
+    // v1.0.3 crash fix: setupViews() runs on every resume (onGlobalLayout)
+    // and after config changes — without tracking, each run stacked another
+    // scroll listener until the drawer scrolled through a growing pile of
+    // stale callbacks. Keep the single instance and swap it safely.
+    private var gridScrollListener: OnScrollListener? = null
+
     @SuppressLint("ClickableViewAccessibility")
     override fun setupFragment(activity: MainActivity) {
         this.activity = activity
@@ -200,14 +206,16 @@ class AllAppsFragment(
         }
 
         binding.allAppsFastscroller.updateColors(context.getProperPrimaryColor())
-        binding.allAppsGrid.addOnScrollListener(object : OnScrollListener() {
+        gridScrollListener?.let { binding.allAppsGrid.removeOnScrollListener(it) }
+        gridScrollListener = object : OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 // Hiding is expensive, only do it if focused
                 if (binding.searchBar.hasFocus() && dy > 0 && binding.allAppsGrid.computeVerticalScrollOffset() > 0) {
                     activity?.hideKeyboard()
                 }
             }
-        })
+        }
+        binding.allAppsGrid.addOnScrollListener(gridScrollListener!!)
 
         setupDrawerBackground()
         getAdapter()?.updateTextColor(context.getProperTextColor())

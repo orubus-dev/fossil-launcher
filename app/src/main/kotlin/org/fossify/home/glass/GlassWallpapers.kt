@@ -77,15 +77,25 @@ object GlassWallpapers {
         return backdrop
     }
 
-    /** Blocking helper for one-off surfaces (dialogs, settings). */
+    /**
+     * Blocking helper for one-off surfaces (dialogs, settings).
+     *
+     * v1.0.3 crash fix (wallpaper loader latch race): the latch is now only
+     * published when this call actually starts the load thread. Previously a
+     * concurrent caller replaced [loadLatch] with a fresh, never-counted-down
+     * latch while the real load still held the old one — every waiter then
+     * stalled the full timeout and could observe null even though the
+     * wallpaper had loaded, which dialog code dereferenced unsafely.
+     */
     fun getBackdropBlocking(context: Context, timeoutMs: Long = 2500): Bitmap? {
         val result = getBackdrop(context)
         if (result != null) {
             return result
         }
-        loadLatch?.let { latch ->
+        val latch = synchronized(lock) { loadLatch }
+        latch?.let {
             try {
-                latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+                it.await(timeoutMs, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {
             }
         }
@@ -103,10 +113,15 @@ object GlassWallpapers {
         if (snapshot != null) {
             return
         }
-        val latch = CountDownLatch(1)
-        loadLatch = latch
         if (!loading.compareAndSet(false, true)) {
             return
+        }
+
+        // publish the latch only when we really start the load, so waiters
+        // never sit on a latch that no thread will ever count down
+        val latch = CountDownLatch(1)
+        synchronized(lock) {
+            loadLatch = latch
         }
 
         Thread {
@@ -132,6 +147,9 @@ object GlassWallpapers {
                 }
             } catch (_: Exception) {
             } finally {
+                synchronized(lock) {
+                    loadLatch = null
+                }
                 loading.set(false)
                 latch.countDown()
             }

@@ -37,10 +37,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
+import android.widget.RelativeLayout
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
 import androidx.core.view.GestureDetectorCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat.Type
 import androidx.core.view.isVisible
 import androidx.core.view.iterator
 import androidx.viewbinding.ViewBinding
@@ -85,9 +88,14 @@ import org.fossify.home.extensions.showGridItemGlassMenu
 import org.fossify.home.extensions.supportsDarkText
 import org.fossify.home.extensions.uninstallApp
 import org.fossify.home.fragments.MyFragment
+import org.fossify.home.glass.GlassBatteryPill
+import org.fossify.home.glass.GlassClockSettingsDialog
+import org.fossify.home.glass.GlassClockView
 import org.fossify.home.glass.GlassMenuDialog
+import org.fossify.home.glass.GlassSearchPill
 import org.fossify.home.glass.GlassWallpapers
 import org.fossify.home.glass.WallpaperPickerDialog
+import org.fossify.home.helpers.CrashGuard
 import org.fossify.home.helpers.ITEM_TYPE_FOLDER
 import org.fossify.home.helpers.ITEM_TYPE_ICON
 import org.fossify.home.helpers.ITEM_TYPE_SHORTCUT
@@ -136,6 +144,11 @@ class MainActivity : SimpleActivity(), FlingListener {
 
     private var wallpaperColorChangeListener: OnColorsChangedListener? = null
     private var wallpaperSupportsDarkText: Boolean? = null
+
+    // liquid glass v1.0.3: dock pills
+    private var searchPill: GlassSearchPill? = null
+    private var batteryPill: GlassBatteryPill? = null
+    private var pillsInstalled = false
 
     private lateinit var mDetector: GestureDetectorCompat
     private val binding by viewBinding(ActivityMainBinding::inflate)
@@ -201,6 +214,8 @@ class MainActivity : SimpleActivity(), FlingListener {
 
         setupWallpaperColorListener()
         GlassWallpapers.prefetch(applicationContext)
+        installGlassSurfaces()
+        maybeOfferCrashLog()
     }
 
     private fun setupWallpaperColorListener() {
@@ -274,6 +289,8 @@ class MainActivity : SimpleActivity(), FlingListener {
         restoreLauncherFromLaunchZoom()
         GlassWallpapers.prefetch(applicationContext)
         refreshWallpaperSupportsDarkText()
+        batteryPill?.register()
+        positionGlassSurfaces()
         Handler(Looper.getMainLooper()).postDelayed({
             if (isAllAppsFragmentExpanded() || isWidgetsFragmentExpanded()) {
                 updateStatusBarIcons(getProperBackgroundColor())
@@ -319,6 +336,7 @@ class MainActivity : SimpleActivity(), FlingListener {
         binding.homeScreenGrid.root.showHomeIcons = config.homeScreenMode != HOME_MODE_DRAWER_ONLY
         binding.allAppsFragment.root.onResume()
         applyHomeScreenMode()
+        positionGlassSurfaces()
     }
 
     /**
@@ -360,6 +378,7 @@ class MainActivity : SimpleActivity(), FlingListener {
     override fun onPause() {
         super.onPause()
         wasJustPaused = true
+        batteryPill?.unregister()
     }
 
     override fun onBackPressedCompat(): Boolean {
@@ -846,6 +865,18 @@ class MainActivity : SimpleActivity(), FlingListener {
             return
         }
 
+        // long-pressing the glass clock opens the live glass tuning panel
+        if (config.glassClockEnabled && binding.glassClock.isVisible) {
+            val clock = binding.glassClock
+            if (x >= clock.x && x <= clock.x + clock.width &&
+                y >= clock.y && y <= clock.y + clock.height
+            ) {
+                binding.mainHolder.performHapticFeedback()
+                openGlassClockSettings()
+                return
+            }
+        }
+
         binding.mainHolder.performHapticFeedback()
         showMainLongPressMenu(x, y)
     }
@@ -1021,6 +1052,12 @@ class MainActivity : SimpleActivity(), FlingListener {
         )
         items.add(
             GlassMenuDialog.Item(
+                title = getString(R.string.glass_settings_title),
+                onClick = { openGlassClockSettings() }
+            )
+        )
+        items.add(
+            GlassMenuDialog.Item(
                 title = getString(R.string.launcher_settings),
                 onClick = { launchSettings() }
             )
@@ -1116,8 +1153,167 @@ class MainActivity : SimpleActivity(), FlingListener {
         try {
             binding.allAppsFragment.root.setupDrawerBackground()
             binding.widgetsFragment.root.setupDrawerBackground()
+            binding.glassClock.invalidateGlass()
+            searchPill?.invalidateGlass()
+            batteryPill?.invalidateGlass()
         } catch (_: Exception) {
         }
+    }
+
+    // ---- liquid glass v1.0.3: clock, dock pills, crash capture -------------
+
+    /**
+     * Create the two dock pills and wire their behaviour. The clock is part
+     * of the layout; the pills are added into the grid so they anchor to its
+     * dock geometry and sit under the drawer sheet.
+     */
+    private fun installGlassSurfaces() {
+        if (pillsInstalled) {
+            return
+        }
+        pillsInstalled = true
+
+        val grid = binding.homeScreenGrid.root
+        val pillHeight = resources.displayMetrics.density * 40f
+
+        val search = GlassSearchPill(this).apply {
+            id = View.generateViewId()
+            isClickable = true
+            isFocusable = true
+            contentDescription = getString(R.string.search_pill_hint)
+            setOnClickListener {
+                if (!isAllAppsFragmentExpanded()) {
+                    showFragment(binding.allAppsFragment)
+                }
+            }
+        }
+        val battery = GlassBatteryPill(this).apply {
+            id = View.generateViewId()
+            isClickable = false
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+
+        grid.addView(search, RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT,
+            pillHeight.toInt()
+        ))
+        grid.addView(battery, RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT,
+            pillHeight.toInt()
+        ))
+        searchPill = search
+        batteryPill = battery
+
+        binding.mainHolder.onGlobalLayout {
+            positionGlassSurfaces()
+        }
+    }
+
+    /** Place the clock under the status bar and the pills above the dock. */
+    private fun positionGlassSurfaces() {
+        try {
+            val clock = binding.glassClock
+            clock.isVisible = config.glassClockEnabled
+            val statusBarTop = ViewCompat.getRootWindowInsets(binding.mainHolder)
+                ?.getInsets(Type.statusBars())?.top ?: 0
+            clock.translationY = statusBarTop.toFloat() + resources.displayMetrics.density * 6f
+
+            val grid = binding.homeScreenGrid.root
+            val search = searchPill
+            val battery = batteryPill
+            if (search != null && battery != null) {
+                val density = resources.displayMetrics.density
+                val pillHeight = (40f * density).toInt()
+                val pillGap = (10f * density).toInt()
+
+                search.isVisible = config.showSearchPill
+                battery.isVisible = config.showBatteryPill
+
+                if (config.showSearchPill || config.showBatteryPill) {
+                    val bottomY = grid.getDockPillsBottomY()
+                    val pillsBottomMargin = (grid.height - bottomY).coerceAtLeast(0)
+                    val searchWidth = (156f * density).toInt()
+                    val batteryWidth = (138f * density).toInt()
+
+                    search.layoutParams = (search.layoutParams as? RelativeLayout.LayoutParams
+                        ?: RelativeLayout.LayoutParams(searchWidth, pillHeight)).apply {
+                        removeRule(RelativeLayout.END_OF)
+                        removeRule(RelativeLayout.ALIGN_TOP)
+                        addRule(RelativeLayout.CENTER_HORIZONTAL)
+                        width = searchWidth
+                        height = pillHeight
+                        bottomMargin = pillsBottomMargin
+                        marginStart = 0
+                    }
+                    search.requestLayout()
+
+                    battery.layoutParams = (battery.layoutParams as? RelativeLayout.LayoutParams
+                        ?: RelativeLayout.LayoutParams(batteryWidth, pillHeight)).apply {
+                        height = pillHeight
+                        bottomMargin = pillsBottomMargin
+                        if (config.showSearchPill) {
+                            // battery pill sits right of the centered search pill
+                            removeRule(RelativeLayout.CENTER_HORIZONTAL)
+                            addRule(RelativeLayout.END_OF, search.id)
+                            addRule(RelativeLayout.ALIGN_TOP, search.id)
+                            marginStart = pillGap
+                        } else {
+                            removeRule(RelativeLayout.END_OF)
+                            removeRule(RelativeLayout.ALIGN_TOP)
+                            addRule(RelativeLayout.CENTER_HORIZONTAL)
+                            marginStart = 0
+                        }
+                        width = batteryWidth
+                    }
+                    battery.requestLayout()
+                }
+            }
+        } catch (_: Exception) {
+            // never let surface positioning take the launcher down
+        }
+    }
+
+    /** Long-pressing the clock opens the live glass tuning panel. */
+    private fun openGlassClockSettings() {
+        GlassClockSettingsDialog(
+            activity = this,
+            onGlassChanged = {
+                binding.glassClock.invalidateGlass()
+                positionGlassSurfaces()
+            },
+            onDismiss = null
+        ).show()
+    }
+
+    /**
+     * Crash capture handoff: if the previous run ended in a crash, surface
+     * the saved log so it can finally be diagnosed from the real trace.
+     */
+    private fun maybeOfferCrashLog() {
+        val crashFile = CrashGuard.pendingCrashFile(this) ?: return
+        GlassMenuDialog(
+            activity = this,
+            title = getString(R.string.crash_detected_title),
+            items = listOf(
+                GlassMenuDialog.Item(getString(R.string.share_crash_log)) {
+                    try {
+                        startActivity(CrashGuard.shareIntent(this, crashFile))
+                    } catch (_: Exception) {
+                        toast(org.fossify.commons.R.string.no_app_found)
+                    }
+                    CrashGuard.clearPendingCrash(this)
+                },
+                GlassMenuDialog.Item(
+                    getString(R.string.discard_crash_log),
+                    danger = true,
+                    dividedAbove = false
+                ) {
+                    CrashGuard.clearPendingCrash(this)
+                }
+            ),
+            onDismiss = { CrashGuard.clearPendingCrash(this) }
+        ).show()
     }
 
     private fun resetFragmentTouches() {

@@ -89,18 +89,18 @@ jobs:
         run: |
           mv apk/Fossil-release.apk "Fossil-v$VER.apk"
           cat > notes.md <<'EOF'
-          ## Fossil v1.0.2 — the liquid glass engine
+          ## Fossil v1.0.3 — glass clock + dock pills
 
-          - **Real liquid glass** — every popup (long-press menus, wallpaper selector, rename, pickers) now refracts actual launcher content through a rounded-rect lens: displacement refraction, chromatic dispersion, fresnel rim and specular highlight. Live GPU shaders on Android 13+, an identical software render everywhere else — no more tinted layer
-          - **Liquid folders** — folder panels are pre-rendered glass surfaces with the same optics
-          - **Glass settings** — real blurred wallpaper skin, adaptive day/night scrim
-          - **Glass drawer** — actual blurred wallpaper layered under the frosted sheet, works on every device
-          - **Launch animation** — apps bloom out of the tapped icon while the launcher recedes
-          - **Three home layouts** — classic, all-apps-on-home, drawer-only home
-          - **Icon cache** — drawer icons render with zero delay; uninstalled apps drop their cache entries
-          - **Counterfeit nag removed** — upstream Fossify's randomized "fake app" warning no longer fires on this legitimate GPL fork
+          - **Glass clock widget** — frosted home-screen clock with clear-glass digits rendered through the refraction engine, with live date line and 12/24h toggle
+          - **Glass clock settings** — long-press the clock for live sliders: Refraction, Vibrancy, Height/Depth, Blur radius, Highlight width, Fill opacity — the home screen re-renders while you drag
+          - **Battery pill** — percent, device model and a charge bar that fills while charging, on its own glass pill above the dock
+          - **Search pill** — tap to open the app drawer; both pills toggleable from the glass settings
+          - **Crash capture** — crashes are now saved to disk and the launcher offers to share the log on next start, so "keeps closing" can be diagnosed from the real stack trace
+          - **3 crash fixes** — wallpaper loader latch race (stalls + null backdrops), recycled-bitmap races in the glass backdrop pipeline, duplicate drawer scroll listeners piling up on every resume
 
-          Modded from [Fossify Launcher](https://github.com/FossifyOrg/Launcher) (GPL-3.0).
+          ### v1.0.2 — the liquid glass engine
+          - Real refraction (AGSL GPU tier + software tier), liquid folder panels, glass dialogs, drawer wallpaper skin, icon LRU cache, three home modes, launch clip-reveal
+          - Counterfeit nag removed — legitimate GPL fork of [Fossify Launcher](https://github.com/FossifyOrg/Launcher)
           EOF
           if gh release view "v$VER" >/dev/null 2>&1; then
             echo "Release v$VER already exists — skipping"

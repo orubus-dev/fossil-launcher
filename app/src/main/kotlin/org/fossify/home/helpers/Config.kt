@@ -1,6 +1,7 @@
 package org.fossify.home.helpers
 
 import android.content.Context
+import android.text.format.DateFormat
 import org.fossify.commons.helpers.BaseConfig
 import org.fossify.home.R
 
@@ -57,4 +58,52 @@ class Config(context: Context) : BaseConfig(context) {
     var homeScreenMode: Int
         get() = prefs.getInt(HOME_SCREEN_MODE, HOME_MODE_CLASSIC)
         set(homeScreenMode) = prefs.edit().putInt(HOME_SCREEN_MODE, homeScreenMode).apply()
+
+    // ---- liquid glass v1.0.3: clock + dock pills ---------------------------
+
+    var glassClockEnabled: Boolean
+        get() = prefs.getBoolean(GLASS_CLOCK_ENABLED, true)
+        set(glassClockEnabled) = prefs.edit().putBoolean(GLASS_CLOCK_ENABLED, glassClockEnabled).apply()
+
+    var glassClock24h: Boolean
+        get() = prefs.getBoolean(GLASS_CLOCK_24H, DateFormat.is24HourFormat(context))
+        set(glassClock24h) = prefs.edit().putBoolean(GLASS_CLOCK_24H, glassClock24h).apply()
+
+    /** Edge refraction strength of the clock lens, 0..30. */
+    var glassClockRefraction: Float
+        get() = prefs.getFloat(GLASS_CLOCK_REFRACTION, 14f)
+        set(glassClockRefraction) = prefs.edit().putFloat(GLASS_CLOCK_REFRACTION, glassClockRefraction).apply()
+
+    /** Translucent white tint strength over the backdrop, 0..1. */
+    var glassClockVibrancy: Float
+        get() = prefs.getFloat(GLASS_CLOCK_VIBRANCY, 0.35f)
+        set(glassClockVibrancy) = prefs.edit().putFloat(GLASS_CLOCK_VIBRANCY, glassClockVibrancy.coerceIn(0f, 1f)).apply()
+
+    /** Lens ring depth (edge width), 0..1. */
+    var glassClockDepth: Float
+        get() = prefs.getFloat(GLASS_CLOCK_DEPTH, 0.4f)
+        set(glassClockDepth) = prefs.edit().putFloat(GLASS_CLOCK_DEPTH, glassClockDepth.coerceIn(0f, 1f)).apply()
+
+    /** Backdrop blur radius in px, 0..60. */
+    var glassClockBlur: Float
+        get() = prefs.getFloat(GLASS_CLOCK_BLUR, 14f)
+        set(glassClockBlur) = prefs.edit().putFloat(GLASS_CLOCK_BLUR, glassClockBlur.coerceIn(0f, 60f)).apply()
+
+    /** Specular highlight strength, 0..1. */
+    var glassClockHighlight: Float
+        get() = prefs.getFloat(GLASS_CLOCK_HIGHLIGHT, 0.85f)
+        set(glassClockHighlight) = prefs.edit().putFloat(GLASS_CLOCK_HIGHLIGHT, glassClockHighlight.coerceIn(0f, 1f)).apply()
+
+    /** Fill opacity of the frosted layer, 0..1. */
+    var glassClockFill: Float
+        get() = prefs.getFloat(GLASS_CLOCK_FILL, 0.5f)
+        set(glassClockFill) = prefs.edit().putFloat(GLASS_CLOCK_FILL, glassClockFill.coerceIn(0f, 1f)).apply()
+
+    var showSearchPill: Boolean
+        get() = prefs.getBoolean(SHOW_SEARCH_PILL, true)
+        set(showSearchPill) = prefs.edit().putBoolean(SHOW_SEARCH_PILL, showSearchPill).apply()
+
+    var showBatteryPill: Boolean
+        get() = prefs.getBoolean(SHOW_BATTERY_PILL, true)
+        set(showBatteryPill) = prefs.edit().putBoolean(SHOW_BATTERY_PILL, showBatteryPill).apply()
 }

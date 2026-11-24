@@ -29,6 +29,23 @@
     <string name="home_mode_classic">Home screen &amp; drawer</string>
     <string name="home_mode_all_apps">All apps on home</string>
     <string name="home_mode_drawer_only">Drawer only home</string>
+    <!-- Fossil liquid glass v1.0.3 -->
+    <string name="glass_settings_title">Glass settings</string>
+    <string name="glass_show_clock">Glass clock</string>
+    <string name="glass_clock_24h">24-hour time</string>
+    <string name="glass_refraction">Refraction</string>
+    <string name="glass_vibrancy">Vibrancy</string>
+    <string name="glass_depth">Height / depth</string>
+    <string name="glass_blur">Blur radius</string>
+    <string name="glass_highlight">Highlight width</string>
+    <string name="glass_fill">Fill opacity</string>
+    <string name="glass_pills_section">Dock pills</string>
+    <string name="glass_search_pill">Search pill</string>
+    <string name="glass_battery_pill">Battery pill</string>
+    <string name="search_pill_hint">Search apps</string>
+    <string name="crash_detected_title">Fossil closed unexpectedly</string>
+    <string name="share_crash_log">Share crash log</string>
+    <string name="discard_crash_log">Discard</string>
     <!--
         Haven't found some strings? There's more at
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res

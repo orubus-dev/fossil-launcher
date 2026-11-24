@@ -1638,6 +1638,23 @@ class HomeScreenGrid(context: Context, attrs: AttributeSet, defStyle: Int) :
         closeFolder(true)
     }
 
+    /**
+     * Y of the band right above the dock, in this view's coordinates — the
+     * dock pills (search / battery) anchor their bottom edge here. Leaves
+     * room for the page indicators when they are visible.
+     */
+    fun getDockPillsBottomY(): Int {
+        if (cells.isEmpty()) {
+            fillCellSizes()
+        }
+        val dockTop = sideMargins.top + dockCellY
+        return if (pager.shouldDisplayPageChangeIndicator()) {
+            (dockTop - pageIndicatorRadius * 2 - iconMargin * 2).toInt()
+        } else {
+            dockTop - iconMargin
+        }
+    }
+
     fun fragmentCollapsed() {
         widgetViews.forEach {
             it.ignoreTouches = false

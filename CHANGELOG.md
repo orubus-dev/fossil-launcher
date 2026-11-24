@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-24
+### Added
+- Glass clock widget on the home screen: frosted panel with clear-glass digits rendered through the liquid glass refraction engine
+- Glass clock settings: long-press the clock for live sliders (refraction, vibrancy, height/depth, blur radius, highlight width, fill opacity) plus a 24-hour toggle
+- Battery pill above the dock: percent, device model and a charge bar that fills while charging
+- Search pill above the dock: opens the app drawer; both pills toggleable from the glass settings
+- Crash capture: uncaught crashes are written to disk and the launcher offers to share the log on next start
+- "Glass settings" entry in the home long-press menu
+
+### Fixed
+- Wallpaper loader latch race in the glass engine (waiters stalled on a never-released latch, backdrops nulling out)
+- Recycled-bitmap races in the glass backdrop pipeline (shared snapshots/composites were recycled while still in use)
+- Duplicate drawer scroll listeners piling up on every resume
+
+## [1.0.2] - 2026-11-01
+### Added
+- Liquid glass engine: real refraction (AGSL GPU tier + software tier) with chromatic dispersion and specular rim
+- Liquid folder panels, glass dialogs, drawer wallpaper skin
+- Launch clip-reveal animation, icon LRU cache, three home screen modes
+
 ## [1.10.0] - 2026-02-14
 ### Added
 - Pressing enter in app drawer launches the first app in search results ([#331])

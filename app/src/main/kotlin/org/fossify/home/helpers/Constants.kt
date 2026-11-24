@@ -18,6 +18,18 @@ const val SHOW_HOME_APP_LABELS = "show_home_app_labels"
 const val DRAWER_GLASS_ICONS = "drawer_glass_icons"
 const val HOME_SCREEN_MODE = "home_screen_mode"
 
+// liquid glass v1.0.3 — clock + dock pills
+const val GLASS_CLOCK_ENABLED = "glass_clock_enabled"
+const val GLASS_CLOCK_24H = "glass_clock_24h"
+const val GLASS_CLOCK_REFRACTION = "glass_clock_refraction"
+const val GLASS_CLOCK_VIBRANCY = "glass_clock_vibrancy"
+const val GLASS_CLOCK_DEPTH = "glass_clock_depth"
+const val GLASS_CLOCK_BLUR = "glass_clock_blur"
+const val GLASS_CLOCK_HIGHLIGHT = "glass_clock_highlight"
+const val GLASS_CLOCK_FILL = "glass_clock_fill"
+const val SHOW_SEARCH_PILL = "show_search_pill"
+const val SHOW_BATTERY_PILL = "show_battery_pill"
+
 // home screen layout modes
 const val HOME_MODE_CLASSIC = 0          // home grid + app drawer on swipe up
 const val HOME_MODE_ALL_APPS_ON_HOME = 1 // the drawer is the home screen

@@ -71,6 +71,14 @@ class LiquidGlassPanel(
     @Volatile
     private var softwareJobPending = false
 
+    /** A render request arrived while a job was in flight; re-run after. */
+    @Volatile
+    private var pendingSoftwareRender = false
+
+    /** Last raw backdrop handed to the software tier, for queued re-renders. */
+    @Volatile
+    private var lastRawBackdrop: Bitmap? = null
+
     init {
         clipChildren = false
         clipToPadding = false
@@ -156,20 +164,30 @@ class LiquidGlassPanel(
     }
 
     private fun renderSoftwareBackdrop(raw: Bitmap) {
+        if (raw.isRecycled) {
+            return
+        }
+        lastRawBackdrop = raw
         if (softwareJobPending) {
+            // v1.0.3 fix: remember the request instead of dropping it, so a
+            // style change landing mid-render still re-renders afterwards
+            pendingSoftwareRender = true
             return
         }
         softwareJobPending = true
         val styleSnapshot = style
         Thread {
-            val refracted = GlassRefraction.render(
-                raw,
-                styleSnapshot.cornerRadiusPx,
-                styleSnapshot.params.copy(
-                    panelInset = styleSnapshot.panelInset,
-                    blur = styleSnapshot.blurRadius
+            val source = lastRawBackdrop
+            val refracted = source?.takeIf { !it.isRecycled }?.let {
+                GlassRefraction.render(
+                    it,
+                    styleSnapshot.cornerRadiusPx,
+                    styleSnapshot.params.copy(
+                        panelInset = styleSnapshot.panelInset,
+                        blur = styleSnapshot.blurRadius
+                    )
                 )
-            )
+            }
             softwareJobPending = false
             if (refracted != null) {
                 post {
@@ -177,6 +195,12 @@ class LiquidGlassPanel(
                     if (backdropView.alpha < 1f) {
                         backdropView.animate().alpha(1f).setDuration(220L).start()
                     }
+                }
+            }
+            post {
+                if (pendingSoftwareRender && !softwareJobPending) {
+                    pendingSoftwareRender = false
+                    lastRawBackdrop?.let { renderSoftwareBackdrop(it) }
                 }
             }
         }.start()

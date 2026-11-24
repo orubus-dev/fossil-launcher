@@ -1,7 +1,8 @@
 pluginManagement {
     repositories {
-        gradlePluginPortal()
         google()
+        maven { setUrl("https://repo.huaweicloud.com/repository/maven") }
+        gradlePluginPortal()
         mavenCentral()
     }
 }
@@ -9,8 +10,9 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        mavenCentral()
+        maven { setUrl("https://repo.huaweicloud.com/repository/maven") }
         maven { setUrl("https://www.jitpack.io") }
+        mavenCentral()
         mavenLocal()
     }
 }
